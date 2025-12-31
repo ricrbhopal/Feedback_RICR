@@ -11,13 +11,20 @@ const questionSchema = new mongoose.Schema(
 
     type: {
       type: String,
-      enum: ["short", "paragraph", "mcq", "checkbox", "dropdown"],
+      enum: ["short", "paragraph", "mcq", "checkbox", "dropdown", "star_rating"],
       required: true
     },
 
     options: {
       type: [String],
       default: []
+    },
+
+    maxStars: {
+      type: Number,
+      default: 5,
+      min: 1,
+      max: 10
     },
 
     required: {

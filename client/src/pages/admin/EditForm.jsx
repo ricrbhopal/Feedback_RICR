@@ -57,6 +57,7 @@ const EditForm = () => {
       questionText: "",
       type: "short",
       options: [""],
+      maxStars: 5,
       required: false,
     };
     setQuestions([...questions, newQuestion]);
@@ -81,6 +82,11 @@ const EditForm = () => {
             updated.options = ["", ""];
           } else if (!needsOptions && hadOptions) {
             updated.options = [];
+          }
+
+          // Initialize maxStars for star rating type
+          if (value === "star_rating" && !q.maxStars) {
+            updated.maxStars = 5;
           }
         }
 
@@ -450,6 +456,7 @@ const EditForm = () => {
                             <option value="mcq">Multiple Choice</option>
                             <option value="checkbox">Checkbox</option>
                             <option value="dropdown">Dropdown</option>
+                            <option value="star_rating">Star Rating</option>
                           </select>
                         </div>
 
@@ -518,6 +525,32 @@ const EditForm = () => {
                               + Add Option
                             </button>
                           </div>
+                        </div>
+                      )}
+
+                      {/* Max Stars for Star Rating */}
+                      {question.type === "star_rating" && (
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-2">
+                            Maximum Stars
+                          </label>
+                          <select
+                            value={question.maxStars || 5}
+                            onChange={(e) =>
+                              handleQuestionChange(
+                                question.id,
+                                "maxStars",
+                                parseInt(e.target.value)
+                              )
+                            }
+                            className="w-full px-4 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-700 focus:border-transparent"
+                          >
+                            {[3, 4, 5, 6, 7, 8, 9, 10].map((num) => (
+                              <option key={num} value={num}>
+                                {num} Stars
+                              </option>
+                            ))}
+                          </select>
                         </div>
                       )}
                     </div>

@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import toast from 'react-hot-toast';
+import QRCodeModal from "../../components/QRCodeModal.jsx";
 import api from "../../config/api.jsx";
 import { useAuth } from "../../context/AuthContext";
 
@@ -13,6 +14,9 @@ const TeacherDashboard = () => {
   });
 
   const [forms, setForms] = useState([]);
+  const [qrModalOpen, setQrModalOpen] = useState(false);
+  const [selectedFormLink, setSelectedFormLink] = useState("");
+  const [selectedFormTitle, setSelectedFormTitle] = useState("");
 
   const fetchForms = async () => {
     try {
@@ -60,6 +64,13 @@ const TeacherDashboard = () => {
       console.error("Error toggling form status", error);
       toast.error("Error updating form status");
     }
+  };
+
+  const handleShowQR = (formId, formTitle) => {
+    const link = `http://localhost:5173/form/${formId}`;
+    setSelectedFormLink(link);
+    setSelectedFormTitle(formTitle);
+    setQrModalOpen(true);
   };
 
   return (
@@ -175,6 +186,12 @@ const TeacherDashboard = () => {
                           >
                             Copy Link
                           </button>
+                          <button
+                            onClick={() => handleShowQR(form._id, form.title)}
+                            className="px-3 py-1.5 bg-indigo-600 text-white text-xs font-medium rounded hover:bg-indigo-700 transition-colors"
+                          >
+                            QR Code
+                          </button>
                           
                           {/* Toggle Switch with Label */}
                           <div className="flex items-center gap-2 ml-2 pl-2 border-l border-gray-300">
@@ -205,6 +222,14 @@ const TeacherDashboard = () => {
           </div>
         </div>
       </div>
+
+      {/* QR Code Modal */}
+      <QRCodeModal
+        isOpen={qrModalOpen}
+        onClose={() => setQrModalOpen(false)}
+        formLink={selectedFormLink}
+        formTitle={selectedFormTitle}
+      />
     </div>
   );
 };
