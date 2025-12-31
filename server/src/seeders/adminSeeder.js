@@ -1,15 +1,15 @@
 import mongoose, { mongo } from "mongoose";
 import bcrypt from "bcryptjs";
-import Admin from "../models/AdminModel.js";
+import Admin from "../models/adminModel.js";
 import dotenv from "dotenv";
 import connectDB from "../config/db.js";
 
 dotenv.config();
 
 const data = {
-    fullName: "Aadi Jotwani",
-    email: "aadijotwani@gmail.com",
-    password: "Admin@12345",
+    fullName: "Pranay K Das",
+    email: "pranay@ricr.in",
+    password: "Pranay@123",
     role: "admin"
 };
 
