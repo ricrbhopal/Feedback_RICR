@@ -17,7 +17,7 @@ const seedAdmin = async () => {
     await connectDB();
     const existingAdmin = await Admin.findOne({ email: data.email });
     if (existingAdmin) {
-        await existingAdmin.remove();
+        await existingAdmin.deleteOne();
         console.log("Existing admin removed.");
         return;
     }
