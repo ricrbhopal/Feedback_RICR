@@ -19,8 +19,8 @@ const Navbar = () => {
         <div className="flex justify-between items-center h-16">
           {/* Left side - Logo and Name */}
           <Link to="/" className="flex items-center gap-5 hover:opacity-80 transition-opacity">
-            <img src={logo} alt="FeedbackHub Logo" className="h-10 w-20 object-contain" />
-            <span className="text-xl font-bold ">
+            <img src={logo} alt="FeedbackHub Logo" className="h-7 w-14 md:h-10 md:w-20  object-contain" />
+            <span className="text-base md:text-xl font-bold ">
               Academic Feedback Management System
             </span>
           </Link>
