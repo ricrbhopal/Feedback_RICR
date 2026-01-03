@@ -1,13 +1,12 @@
-
-import React, { useEffect, useState } from 'react';
-import { useParams } from 'react-router-dom';
-import toast from 'react-hot-toast';
-import api from '../../config/api';
+import React, { useEffect, useState } from "react";
+import { useParams } from "react-router-dom";
+import toast from "react-hot-toast";
+import api from "../../config/api";
 
 const FillForm = () => {
   const [answers, setAnswers] = useState({});
-  const [studentName, setStudentName] = useState('');
-  const [batch, setBatch] = useState('');
+  const [studentName, setStudentName] = useState("");
+  const [batch, setBatch] = useState("");
   const { formId } = useParams();
   const [formData, setFormData] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -28,32 +27,34 @@ const FillForm = () => {
   }, [formId]);
 
   const handleInputChange = (questionId, value) => {
-    setAnswers(prev => ({
+    setAnswers((prev) => ({
       ...prev,
-      [questionId]: value
+      [questionId]: value,
     }));
   };
 
   const handleCheckboxChange = (questionId, option) => {
     const currentAnswers = answers[questionId] || [];
     const updatedAnswers = currentAnswers.includes(option)
-      ? currentAnswers.filter(item => item !== option)
+      ? currentAnswers.filter((item) => item !== option)
       : [...currentAnswers, option];
-    
-    setAnswers(prev => ({
+
+    setAnswers((prev) => ({
       ...prev,
-      [questionId]: updatedAnswers
+      [questionId]: updatedAnswers,
     }));
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    
+
     // Re-check form status before submission
     try {
       const statusCheck = await api.get(`/forms/${formId}`);
       if (!statusCheck.data.data.isActive) {
-        toast.error('This form has been deactivated and is no longer accepting responses.');
+        toast.error(
+          "This form has been deactivated and is no longer accepting responses."
+        );
         // Reload to show deactivated message
         setTimeout(() => {
           window.location.reload();
@@ -61,53 +62,55 @@ const FillForm = () => {
         return;
       }
     } catch (error) {
-      console.error('Error checking form status', error);
-      toast.error('Failed to verify form status. Please try again.');
+      console.error("Error checking form status", error);
+      toast.error("Failed to verify form status. Please try again.");
       return;
     }
-    
+
     // Convert answers object to array format
-    const answersArray = Object.entries(answers).map(([questionId, answer]) => ({
-      questionId,
-      answer
-    }));
+    const answersArray = Object.entries(answers).map(
+      ([questionId, answer]) => ({
+        questionId,
+        answer,
+      })
+    );
 
     try {
       await api.post(`/responses/${formId}`, {
         studentName,
         batch,
-        answers: answersArray
+        answers: answersArray,
       });
-      
-      toast.success('Form submitted successfully!');
-      
+
+      toast.success("Form submitted successfully!");
+
       // Clear form
-      setStudentName('');
-      setBatch('');
+      setStudentName("");
+      setBatch("");
       setAnswers({});
     } catch (error) {
-      console.error('Error submitting form', error);
-      toast.error('Failed to submit form. Please try again.');
+      console.error("Error submitting form", error);
+      toast.error("Failed to submit form. Please try again.");
     }
   };
 
   const renderQuestion = (question) => {
     switch (question.type) {
-      case 'short':
+      case "short":
         return (
           <input
             type="text"
-            value={answers[question._id] || ''}
+            value={answers[question._id] || ""}
             onChange={(e) => handleInputChange(question._id, e.target.value)}
             className="w-full px-4 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-700 focus:border-transparent"
             placeholder="Your answer"
           />
         );
 
-      case 'paragraph':
+      case "paragraph":
         return (
           <textarea
-            value={answers[question._id] || ''}
+            value={answers[question._id] || ""}
             onChange={(e) => handleInputChange(question._id, e.target.value)}
             rows="4"
             className="w-full px-4 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-700 focus:border-transparent resize-none"
@@ -115,17 +118,22 @@ const FillForm = () => {
           />
         );
 
-      case 'mcq':
+      case "mcq":
         return (
           <div className="space-y-2">
             {question.options.map((option, index) => (
-              <label key={index} className="flex items-center gap-3 cursor-pointer">
+              <label
+                key={index}
+                className="flex items-center gap-3 cursor-pointer"
+              >
                 <input
                   type="radio"
                   name={`question-${question._id}`}
                   value={option}
                   checked={answers[question._id] === option}
-                  onChange={(e) => handleInputChange(question._id, e.target.value)}
+                  onChange={(e) =>
+                    handleInputChange(question._id, e.target.value)
+                  }
                   className="w-4 h-4 text-blue-700 border-gray-300 focus:ring-blue-700"
                 />
                 <span className="text-sm text-gray-700">{option}</span>
@@ -134,11 +142,14 @@ const FillForm = () => {
           </div>
         );
 
-      case 'checkbox':
+      case "checkbox":
         return (
           <div className="space-y-2">
             {question.options.map((option, index) => (
-              <label key={index} className="flex items-center gap-3 cursor-pointer">
+              <label
+                key={index}
+                className="flex items-center gap-3 cursor-pointer"
+              >
                 <input
                   type="checkbox"
                   value={option}
@@ -152,10 +163,10 @@ const FillForm = () => {
           </div>
         );
 
-      case 'dropdown':
+      case "dropdown":
         return (
           <select
-            value={answers[question._id] || ''}
+            value={answers[question._id] || ""}
             onChange={(e) => handleInputChange(question._id, e.target.value)}
             className="w-full px-4 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-700 focus:border-transparent"
           >
@@ -168,7 +179,7 @@ const FillForm = () => {
           </select>
         );
 
-      case 'star_rating':
+      case "star_rating":
         const maxStars = question.maxStars || 5;
         const currentRating = answers[question._id] || 0;
         return (
@@ -183,10 +194,10 @@ const FillForm = () => {
                   className="focus:outline-none transition-transform hover:scale-110"
                 >
                   <svg
-                    className={`w-8 h-8 ${
+                    className={`w-3 h-3 md:w-7 md:h-7 ${
                       starValue <= currentRating
-                        ? 'text-yellow-400 fill-current'
-                        : 'text-gray-300'
+                        ? "text-yellow-400 fill-current"
+                        : "text-gray-300"
                     }`}
                     xmlns="http://www.w3.org/2000/svg"
                     viewBox="0 0 24 24"
@@ -229,8 +240,12 @@ const FillForm = () => {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center px-4">
         <div className="text-center">
-          <h2 className="text-2xl font-bold text-gray-900 mb-2">Form Not Found</h2>
-          <p className="text-base text-gray-600">The form you are looking for does not exist.</p>
+          <h2 className="text-2xl font-bold text-gray-900 mb-2">
+            Form Not Found
+          </h2>
+          <p className="text-base text-gray-600">
+            The form you are looking for does not exist.
+          </p>
         </div>
       </div>
     );
@@ -242,11 +257,23 @@ const FillForm = () => {
       <div className="min-h-screen bg-gray-50 flex items-center justify-center px-4">
         <div className="max-w-md mx-auto text-center bg-white border border-gray-200 rounded-lg shadow-sm p-8">
           <div className="mb-4">
-            <svg className="mx-auto h-16 w-16 text-red-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+            <svg
+              className="mx-auto h-16 w-16 text-red-500"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
+              />
             </svg>
           </div>
-          <h2 className="text-2xl font-bold text-gray-900 mb-3">Form Deactivated</h2>
+          <h2 className="text-2xl font-bold text-gray-900 mb-3">
+            Form Deactivated
+          </h2>
           <p className="text-base text-gray-600 mb-2">
             This form is currently not accepting responses.
           </p>
@@ -269,9 +296,7 @@ const FillForm = () => {
               {formData.title}
             </h1>
             {formData.description && (
-              <p className="text-base text-gray-600">
-                {formData.description}
-              </p>
+              <p className="text-base text-gray-600">{formData.description}</p>
             )}
           </div>
 
@@ -304,7 +329,8 @@ const FillForm = () => {
                     <span className="text-red-600 ml-1">*</span>
                   </label>
                 </div>
-                {formData.allowedBatches && formData.allowedBatches.length > 0 ? (
+                {formData.allowedBatches &&
+                formData.allowedBatches.length > 0 ? (
                   <select
                     value={batch}
                     onChange={(e) => setBatch(e.target.value)}
@@ -331,7 +357,10 @@ const FillForm = () => {
               </div>
 
               {formData.questions.map((question) => (
-                <div key={question._id} className="pb-6 border-b border-gray-200 last:border-b-0">
+                <div
+                  key={question._id}
+                  className="pb-6 border-b border-gray-200 last:border-b-0"
+                >
                   {/* Question text */}
                   <div className="mb-4">
                     <label className="block text-base font-medium text-gray-900">
