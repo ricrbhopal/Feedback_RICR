@@ -194,7 +194,7 @@ const FillForm = () => {
                   className="focus:outline-none transition-transform hover:scale-110"
                 >
                   <svg
-                    className={`w-3 h-3 md:w-7 md:h-7 ${
+                    className={`w-5 h-5 md:w-8 md:h-8 ${
                       starValue <= currentRating
                         ? "text-yellow-400 fill-current"
                         : "text-gray-300"
