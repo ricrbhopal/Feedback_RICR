@@ -1,4 +1,4 @@
-import Admin from "../models/AdminModel.js";
+import Admin from "../models/adminModel.js";
 import bcrypt from "bcryptjs";
 import { genAuthToken } from "../utils/auth.js";
 
