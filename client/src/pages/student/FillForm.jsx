@@ -390,13 +390,13 @@ const FillForm = () => {
                     <span className="text-sm font-medium text-gray-900">Absent</span>
                   </label>
                 </div>
-                {isPresent === 'absent' && (
+                {/* {isPresent === 'absent' && (
                   <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded">
                     <p className="text-sm text-blue-800">
                       <strong>Note:</strong> Since you marked yourself as absent, you can submit the form without answering other questions.
                     </p>
                   </div>
-                )}
+                )} */}
               </div>
 
               {/* Show form questions only if student is present */}
