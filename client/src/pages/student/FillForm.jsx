@@ -423,7 +423,7 @@ const FillForm = () => {
             <div className="px-6 py-6 border-t border-gray-200">
               <button
                 type="submit"
-                disabled={(!isPresent || !studentName || ! batch)}
+                disabled={(!isPresent && !studentName && ! batch)}
                 className={`px-8 py-3 font-medium rounded focus:outline-none focus:ring-2 focus:ring-blue-700 focus:ring-offset-2 ${
                   isPresent
                     ? 'bg-blue-700 text-white hover:bg-blue-800'
