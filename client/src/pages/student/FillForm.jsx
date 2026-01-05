@@ -49,24 +49,26 @@ const FillForm = () => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     
-    // Check if student marked themselves as present
-    if (isPresent !== 'present') {
-      toast.error('You must mark yourself as present to submit the form.');
+    // Check if student marked presence
+    if (!isPresent) {
+      toast.error('Please mark your presence status.');
       return;
     }
     
-    // Validate required questions
-    for (const question of formData.questions) {
-      if (question.required) {
-        const answer = answers[question._id];
-        
-        // Check if answer is empty
-        if (!answer || 
-            (Array.isArray(answer) && answer.length === 0) || 
-            (typeof answer === 'string' && answer.trim() === '') ||
-            answer === 0) {
-          toast.error(`Please answer the required question: "${question.questionText}"`);
-          return;
+    // Validate required questions only if student is present
+    if (isPresent === 'present') {
+      for (const question of formData.questions) {
+        if (question.required) {
+          const answer = answers[question._id];
+          
+          // Check if answer is empty
+          if (!answer || 
+              (Array.isArray(answer) && answer.length === 0) || 
+              (typeof answer === 'string' && answer.trim() === '') ||
+              answer === 0) {
+            toast.error(`Please answer the required question: "${question.questionText}"`);
+            return;
+          }
         }
       }
     }
@@ -98,7 +100,8 @@ const FillForm = () => {
       await api.post(`/responses/${formId}`, {
         studentName,
         batch,
-        answers: answersArray
+        answers: answersArray,
+        isPresent: isPresent
       });
       
       toast.success('Form submitted successfully!');
@@ -388,9 +391,9 @@ const FillForm = () => {
                   </label>
                 </div>
                 {isPresent === 'absent' && (
-                  <div className="mt-4 p-3 bg-yellow-50 border border-yellow-200 rounded">
-                    <p className="text-sm text-yellow-800">
-                      <strong>Note:</strong> You must mark yourself as present to fill out this form.
+                  <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded">
+                    <p className="text-sm text-blue-800">
+                      <strong>Note:</strong> Since you marked yourself as absent, you can submit the form without answering other questions.
                     </p>
                   </div>
                 )}
@@ -420,18 +423,18 @@ const FillForm = () => {
             <div className="px-6 py-6 border-t border-gray-200">
               <button
                 type="submit"
-                disabled={isPresent !== 'present'}
+                disabled={!isPresent}
                 className={`px-8 py-3 font-medium rounded focus:outline-none focus:ring-2 focus:ring-blue-700 focus:ring-offset-2 ${
-                  isPresent === 'present'
+                  isPresent
                     ? 'bg-blue-700 text-white hover:bg-blue-800'
                     : 'bg-gray-300 text-gray-500 cursor-not-allowed'
                 }`}
               >
                 Submit
               </button>
-              {isPresent === 'absent' && (
-                <p className="mt-2 text-sm text-red-600">
-                  You cannot submit the form if you are absent.
+              {!isPresent && (
+                <p className="mt-2 text-sm text-gray-600">
+                  Please mark your presence status to submit the form.
                 </p>
               )}
             </div>
