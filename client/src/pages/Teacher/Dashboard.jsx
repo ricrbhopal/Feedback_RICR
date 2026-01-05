@@ -42,7 +42,7 @@ const TeacherDashboard = () => {
   }, []);
 
   const handleCopyLink = (formId) => {
-    const link = `http://localhost:5173/form/${formId}`;
+    const link = `${import.meta.env.VITE_FRONTEND_URL}/form/${formId}`;
     navigator.clipboard
       .writeText(link)
       .then(() => {
@@ -67,7 +67,7 @@ const TeacherDashboard = () => {
   };
 
   const handleShowQR = (formId, formTitle) => {
-    const link = `http://localhost:5173/form/${formId}`;
+    const link = `${import.meta.env.VITE_FRONTEND_URL}/form/${formId}`;
     setSelectedFormLink(link);
     setSelectedFormTitle(formTitle);
     setQrModalOpen(true);
