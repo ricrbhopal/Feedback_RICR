@@ -423,7 +423,7 @@ const FillForm = () => {
             <div className="px-6 py-6 border-t border-gray-200">
               <button
                 type="submit"
-                disabled={!isPresent}
+                disabled={(!isPresent || !studentName || ! batch)}
                 className={`px-8 py-3 font-medium rounded focus:outline-none focus:ring-2 focus:ring-blue-700 focus:ring-offset-2 ${
                   isPresent
                     ? 'bg-blue-700 text-white hover:bg-blue-800'
@@ -432,9 +432,9 @@ const FillForm = () => {
               >
                 Submit
               </button>
-              {!isPresent && (
+              {(!isPresent || !studentName || ! batch) && (
                 <p className="mt-2 text-sm text-gray-600">
-                  Please mark your presence status to submit the form.
+                  Please fill the required feilds to submit the form.
                 </p>
               )}
             </div>
