@@ -7,6 +7,7 @@ const FillForm = () => {
   const [answers, setAnswers] = useState({});
   const [studentName, setStudentName] = useState('');
   const [batch, setBatch] = useState('');
+  const [isPresent, setIsPresent] = useState(''); // '' = not selected, 'present' or 'absent'
   const { formId } = useParams();
   const [formData, setFormData] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -47,6 +48,12 @@ const FillForm = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    
+    // Check if student marked themselves as present
+    if (isPresent !== 'present') {
+      toast.error('You must mark yourself as present to submit the form.');
+      return;
+    }
     
     // Validate required questions
     for (const question of formData.questions) {
@@ -100,6 +107,7 @@ const FillForm = () => {
       setStudentName('');
       setBatch('');
       setAnswers({});
+      setIsPresent('');
     } catch (error) {
       console.error('Error submitting form', error);
       toast.error('Failed to submit form. Please try again.');
@@ -345,7 +353,52 @@ const FillForm = () => {
                 )}
               </div>
 
-              {formData.questions.map((question) => (
+              {/* Presence Check - Default Question */}
+              <div className="pb-6 border-b border-gray-200 bg-blue-50 -mx-6 px-6 py-4">
+                <div className="mb-4">
+                  <label className="block text-base font-medium text-gray-900">
+                    Are you present?
+                    <span className="text-red-600 ml-1">*</span>
+                  </label>
+                </div>
+                <div className="space-y-3">
+                  <label className="flex items-center gap-3 cursor-pointer">
+                    <input
+                      type="radio"
+                      name="presence"
+                      value="present"
+                      checked={isPresent === 'present'}
+                      onChange={(e) => setIsPresent(e.target.value)}
+                      required
+                      className="w-4 h-4 text-green-600 border-gray-300 focus:ring-green-600"
+                    />
+                    <span className="text-sm font-medium text-gray-900">Present</span>
+                  </label>
+                  <label className="flex items-center gap-3 cursor-pointer">
+                    <input
+                      type="radio"
+                      name="presence"
+                      value="absent"
+                      checked={isPresent === 'absent'}
+                      onChange={(e) => setIsPresent(e.target.value)}
+                      required
+                      className="w-4 h-4 text-red-600 border-gray-300 focus:ring-red-600"
+                    />
+                    <span className="text-sm font-medium text-gray-900">Absent</span>
+                  </label>
+                </div>
+                {isPresent === 'absent' && (
+                  <div className="mt-4 p-3 bg-yellow-50 border border-yellow-200 rounded">
+                    <p className="text-sm text-yellow-800">
+                      <strong>Note:</strong> You must mark yourself as present to fill out this form.
+                    </p>
+                  </div>
+                )}
+              </div>
+
+              {/* Show form questions only if student is present */}
+              {/* Show form questions only if student is present */}
+              {isPresent === 'present' && formData.questions.map((question) => (
                 <div key={question._id} className="pb-6 border-b border-gray-200 last:border-b-0">
                   {/* Question text */}
                   <div className="mb-4">
@@ -367,10 +420,20 @@ const FillForm = () => {
             <div className="px-6 py-6 border-t border-gray-200">
               <button
                 type="submit"
-                className="px-8 py-3 bg-blue-700 text-white font-medium rounded hover:bg-blue-800 focus:outline-none focus:ring-2 focus:ring-blue-700 focus:ring-offset-2"
+                disabled={isPresent !== 'present'}
+                className={`px-8 py-3 font-medium rounded focus:outline-none focus:ring-2 focus:ring-blue-700 focus:ring-offset-2 ${
+                  isPresent === 'present'
+                    ? 'bg-blue-700 text-white hover:bg-blue-800'
+                    : 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                }`}
               >
                 Submit
               </button>
+              {isPresent === 'absent' && (
+                <p className="mt-2 text-sm text-red-600">
+                  You cannot submit the form if you are absent.
+                </p>
+              )}
             </div>
           </form>
         </div>
