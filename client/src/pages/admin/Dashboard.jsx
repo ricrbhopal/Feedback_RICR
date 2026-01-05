@@ -79,7 +79,7 @@ const Dashboard = () => {
   };
 
   const handleCopyLink = (formId) => {
-    const link = `${import.meta.env.VITE_FRONTEND_URL}/form/${formId}`;
+    const link = `http://localhost:5173/form/${formId}`;
     navigator.clipboard
       .writeText(link)
       .then(() => {
@@ -104,7 +104,7 @@ const Dashboard = () => {
   };
 
   const handleShowQR = (formId, formTitle) => {
-    const link = `${import.meta.env.VITE_FRONTEND_URL}/form/${formId}`;
+    const link = `http://localhost:5173/form/${formId}`;
     setSelectedFormLink(link);
     setSelectedFormTitle(formTitle);
     setQrModalOpen(true);
