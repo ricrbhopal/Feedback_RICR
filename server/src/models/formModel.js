@@ -11,7 +11,7 @@ const questionSchema = new mongoose.Schema(
 
     type: {
       type: String,
-      enum: ["short", "paragraph", "mcq", "checkbox", "dropdown", "star_rating"],
+      enum: ["short", "paragraph", "mcq", "checkbox", "dropdown", "star_rating", "yes_no"],
       required: true
     },
 

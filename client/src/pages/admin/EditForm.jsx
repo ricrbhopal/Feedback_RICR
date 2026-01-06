@@ -60,9 +60,23 @@ const EditForm = () => {
       type: "short",
       options: [""],
       maxStars: 5,
-      required: false,
+      required: true,
     };
     setQuestions([...questions, newQuestion]);
+  };
+
+  const handleDuplicateQuestion = (questionId) => {
+    const questionToDuplicate = questions.find((q) => q.id === questionId);
+    if (questionToDuplicate) {
+      const duplicatedQuestion = {
+        ...questionToDuplicate,
+        id: Date.now(), // Generate new unique ID
+      };
+      const questionIndex = questions.findIndex((q) => q.id === questionId);
+      const newQuestions = [...questions];
+      newQuestions.splice(questionIndex + 1, 0, duplicatedQuestion);
+      setQuestions(newQuestions);
+    }
   };
 
   const handleRemoveQuestion = (questionId) => {
@@ -117,10 +131,13 @@ const EditForm = () => {
         const updated = { ...q, [field]: value };
 
         if (field === "type") {
-          const needsOptions = ["mcq", "checkbox", "dropdown"].includes(value);
-          const hadOptions = ["mcq", "checkbox", "dropdown"].includes(q.type);
+          const needsOptions = ["mcq", "checkbox", "dropdown", "yes_no"].includes(value);
+          const hadOptions = ["mcq", "checkbox", "dropdown", "yes_no"].includes(q.type);
 
-          if (needsOptions && !hadOptions) {
+          if (value === "yes_no") {
+            // Yes/No type has predefined options
+            updated.options = ["Yes", "No"];
+          } else if (needsOptions && !hadOptions) {
             updated.options = ["", ""];
           } else if (!needsOptions && hadOptions) {
             updated.options = [];
@@ -212,6 +229,13 @@ const EditForm = () => {
           }
         }
       }
+
+      // Yes/No question validation
+      if (question.type === "yes_no") {
+        if (!question.options || question.options.length !== 2) {
+          return `Question ${i + 1} must have exactly 2 options (Yes/No)`;
+        }
+      }
     }
 
     return null;
@@ -272,6 +296,11 @@ const EditForm = () => {
         for (let option of question.options) {
           if (!option || !option.trim()) return false;
         }
+      }
+      
+      // Check Yes/No type
+      if (question.type === 'yes_no') {
+        if (!question.options || question.options.length !== 2) return false;
       }
     }
     
@@ -466,13 +495,24 @@ const EditForm = () => {
                           Question {qIndex + 1}
                         </h3>
                       </div>
-                      <button
-                        type="button"
-                        onClick={() => handleRemoveQuestion(question.id)}
-                        className="text-red-600 hover:text-red-800 font-medium"
-                      >
-                        Remove
-                      </button>
+                      <div className="flex items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={() => handleDuplicateQuestion(question.id)}
+                          className="text-blue-600 hover:text-blue-800 text-sm font-medium"
+                          title="Duplicate question"
+                        >
+                          📋 Duplicate
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleRemoveQuestion(question.id)}
+                          className="text-red-600 hover:text-red-800 text-xl font-bold leading-none"
+                          title="Remove question"
+                        >
+                          ×
+                        </button>
+                      </div>
                     </div>
 
                     <div className="space-y-4">
@@ -512,6 +552,7 @@ const EditForm = () => {
                             <option value="mcq">Multiple Choice</option>
                             <option value="checkbox">Checkbox</option>
                             <option value="dropdown">Dropdown</option>
+                            <option value="yes_no">Yes/No</option>
                             <option value="star_rating">Star Rating</option>
                           </select>
                         </div>
@@ -566,9 +607,10 @@ const EditForm = () => {
                                     onClick={() =>
                                       handleRemoveOption(question.id, oIndex)
                                     }
-                                    className="px-3 py-2 text-red-600 hover:text-red-800 font-medium"
+                                    className="px-3 py-2 text-xl text-red-600 hover:text-red-800 font-bold leading-none"
+                                    title="Remove option"
                                   >
-                                    Remove
+                                    ×
                                   </button>
                                 )}
                               </div>
@@ -580,6 +622,27 @@ const EditForm = () => {
                             >
                               + Add Option
                             </button>
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Yes/No type display (read-only) */}
+                      {question.type === "yes_no" && (
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-2">
+                            Options (Predefined)
+                          </label>
+                          <div className="bg-gray-100 p-3 rounded border border-gray-200">
+                            <div className="flex gap-4">
+                              <div className="flex items-center gap-2">
+                                <span className="w-4 h-4 rounded-full border-2 border-blue-600"></span>
+                                <span className="text-sm text-gray-700">Yes</span>
+                              </div>
+                              <div className="flex items-center gap-2">
+                                <span className="w-4 h-4 rounded-full border-2 border-blue-600"></span>
+                                <span className="text-sm text-gray-700">No</span>
+                              </div>
+                            </div>
                           </div>
                         </div>
                       )}

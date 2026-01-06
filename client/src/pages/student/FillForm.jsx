@@ -142,6 +142,7 @@ const FillForm = () => {
         );
 
       case 'mcq':
+      case 'yes_no': // Handle Yes/No as MCQ
         return (
           <div className="space-y-2">
             {question.options.map((option, index) => (

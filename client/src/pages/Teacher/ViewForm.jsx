@@ -92,7 +92,7 @@ const ViewForm = () => {
                 </div>
                 
                 {/* Display options for multiple choice or checkbox */}
-                {(question.type === 'mcq' || question.type === 'checkbox') && question.options && (
+                {(question.type === 'mcq' || question.type === 'checkbox' || question.type === 'yes_no') && question.options && (
                   <div className="mt-3 ml-4">
                     <p className="text-sm font-medium text-gray-700 mb-2">Options:</p>
                     <ul className="list-disc list-inside space-y-1">
