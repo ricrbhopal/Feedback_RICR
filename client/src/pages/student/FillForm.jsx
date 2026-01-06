@@ -1,16 +1,17 @@
-import React, { useEffect, useState } from 'react';
-import { useParams } from 'react-router-dom';
-import toast from 'react-hot-toast';
-import api from '../../config/api';
+import React, { useEffect, useState } from "react";
+import { useParams } from "react-router-dom";
+import toast from "react-hot-toast";
+import api from "../../config/api";
 
 const FillForm = () => {
   const [answers, setAnswers] = useState({});
-  const [studentName, setStudentName] = useState('');
-  const [batch, setBatch] = useState('');
-  const [isPresent, setIsPresent] = useState(''); // '' = not selected, 'present' or 'absent'
+  const [studentName, setStudentName] = useState("");
+  const [batch, setBatch] = useState("");
+  const [isPresent, setIsPresent] = useState(""); // '' = not selected, 'present' or 'absent'
   const { formId } = useParams();
   const [formData, setFormData] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
     const fetchForm = async () => {
@@ -28,112 +29,130 @@ const FillForm = () => {
   }, [formId]);
 
   const handleInputChange = (questionId, value) => {
-    setAnswers(prev => ({
+    setAnswers((prev) => ({
       ...prev,
-      [questionId]: value
+      [questionId]: value,
     }));
   };
 
   const handleCheckboxChange = (questionId, option) => {
     const currentAnswers = answers[questionId] || [];
     const updatedAnswers = currentAnswers.includes(option)
-      ? currentAnswers.filter(item => item !== option)
+      ? currentAnswers.filter((item) => item !== option)
       : [...currentAnswers, option];
-    
-    setAnswers(prev => ({
+
+    setAnswers((prev) => ({
       ...prev,
-      [questionId]: updatedAnswers
+      [questionId]: updatedAnswers,
     }));
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    
+    if (submitting) return; // Prevent multiple submissions
+    setSubmitting(true);
+
     // Check if student marked presence
     if (!isPresent) {
-      toast.error('Please mark your presence status.');
+      toast.error("Please mark your presence status.");
+      setSubmitting(false);
       return;
     }
-    
+
     // Validate required questions only if student is present
-    if (isPresent === 'present') {
+    if (isPresent === "present") {
       for (const question of formData.questions) {
         if (question.required) {
           const answer = answers[question._id];
-          
+
           // Check if answer is empty
-          if (!answer || 
-              (Array.isArray(answer) && answer.length === 0) || 
-              (typeof answer === 'string' && answer.trim() === '') ||
-              answer === 0) {
-            toast.error(`Please answer the required question: "${question.questionText}"`);
+          if (
+            !answer ||
+            (Array.isArray(answer) && answer.length === 0) ||
+            (typeof answer === "string" && answer.trim() === "") ||
+            answer === 0
+          ) {
+            toast.error(
+              `Please answer the required question: "${question.questionText}"`
+            );
+            setSubmitting(false);
             return;
           }
         }
       }
     }
-    
+
     // Re-check form status before submission
     try {
       const statusCheck = await api.get(`/forms/${formId}`);
       if (!statusCheck.data.data.isActive) {
-        toast.error('This form has been deactivated and is no longer accepting responses.');
+        toast.error(
+          "This form has been deactivated and is no longer accepting responses."
+        );
         // Reload to show deactivated message
         setTimeout(() => {
           window.location.reload();
         }, 2000);
+        setSubmitting(false);
         return;
       }
     } catch (error) {
-      console.error('Error checking form status', error);
-      toast.error('Failed to verify form status. Please try again.');
+      console.error("Error checking form status", error);
+      toast.error("Failed to verify form status. Please try again.");
+      setSubmitting(false);
       return;
     }
-    
+
     // Convert answers object to array format
-    const answersArray = Object.entries(answers).map(([questionId, answer]) => ({
-      questionId,
-      answer
-    }));
+    const answersArray = Object.entries(answers).map(
+      ([questionId, answer]) => ({
+        questionId,
+        answer,
+      })
+    );
 
     try {
       await api.post(`/responses/${formId}`, {
         studentName,
         batch,
         answers: answersArray,
-        isPresent: isPresent
+        isPresent: isPresent,
       });
-      
-      toast.success('Form submitted successfully!');
-      
+
+      toast.success("Form submitted successfully!");
+
       // Clear form
-      setStudentName('');
-      setBatch('');
+      setStudentName("");
+      setBatch("");
       setAnswers({});
-      setIsPresent('');
+      setIsPresent("");
+      setSubmitting(false);
     } catch (error) {
-      console.error('Error submitting form', error);
-      toast.error('Failed to submit form. Please try again.');
+      console.error("Error submitting form", error);
+      toast.error("Failed to submit form. Please try again.");
+      setSubmitting(false);
     }
+
+    setSubmitting(false);
   };
 
   const renderQuestion = (question) => {
     switch (question.type) {
-      case 'short':
+      case "short":
         return (
           <input
             type="text"
-            value={answers[question._id] || ''}
+            value={answers[question._id] || ""}
             onChange={(e) => handleInputChange(question._id, e.target.value)}
             className="w-full px-4 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-700 focus:border-transparent"
             placeholder="Your answer"
           />
         );
 
-      case 'paragraph':
+      case "paragraph":
         return (
           <textarea
-            value={answers[question._id] || ''}
+            value={answers[question._id] || ""}
             onChange={(e) => handleInputChange(question._id, e.target.value)}
             rows="4"
             className="w-full px-4 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-700 focus:border-transparent resize-none"
@@ -141,18 +160,23 @@ const FillForm = () => {
           />
         );
 
-      case 'mcq':
-      case 'yes_no': // Handle Yes/No as MCQ
+      case "mcq":
+      case "yes_no": // Handle Yes/No as MCQ
         return (
           <div className="space-y-2">
             {question.options.map((option, index) => (
-              <label key={index} className="flex items-center gap-3 cursor-pointer">
+              <label
+                key={index}
+                className="flex items-center gap-3 cursor-pointer"
+              >
                 <input
                   type="radio"
                   name={`question-${question._id}`}
                   value={option}
                   checked={answers[question._id] === option}
-                  onChange={(e) => handleInputChange(question._id, e.target.value)}
+                  onChange={(e) =>
+                    handleInputChange(question._id, e.target.value)
+                  }
                   className="w-4 h-4 text-blue-700 border-gray-300 focus:ring-blue-700"
                 />
                 <span className="text-sm text-gray-700">{option}</span>
@@ -161,11 +185,14 @@ const FillForm = () => {
           </div>
         );
 
-      case 'checkbox':
+      case "checkbox":
         return (
           <div className="space-y-2">
             {question.options.map((option, index) => (
-              <label key={index} className="flex items-center gap-3 cursor-pointer">
+              <label
+                key={index}
+                className="flex items-center gap-3 cursor-pointer"
+              >
                 <input
                   type="checkbox"
                   value={option}
@@ -179,10 +206,10 @@ const FillForm = () => {
           </div>
         );
 
-      case 'dropdown':
+      case "dropdown":
         return (
           <select
-            value={answers[question._id] || ''}
+            value={answers[question._id] || ""}
             onChange={(e) => handleInputChange(question._id, e.target.value)}
             className="w-full px-4 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-700 focus:border-transparent"
           >
@@ -195,7 +222,7 @@ const FillForm = () => {
           </select>
         );
 
-      case 'star_rating':
+      case "star_rating":
         const maxStars = question.maxStars || 5;
         const currentRating = answers[question._id] || 0;
         return (
@@ -212,8 +239,8 @@ const FillForm = () => {
                   <svg
                     className={`h-5 w-5 md:w-8 md:h-8 ${
                       starValue <= currentRating
-                        ? 'text-yellow-400 fill-current'
-                        : 'text-gray-300'
+                        ? "text-yellow-400 fill-current"
+                        : "text-gray-300"
                     }`}
                     xmlns="http://www.w3.org/2000/svg"
                     viewBox="0 0 24 24"
@@ -256,8 +283,12 @@ const FillForm = () => {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center px-4">
         <div className="text-center">
-          <h2 className="text-2xl font-bold text-gray-900 mb-2">Form Not Found</h2>
-          <p className="text-base text-gray-600">The form you are looking for does not exist.</p>
+          <h2 className="text-2xl font-bold text-gray-900 mb-2">
+            Form Not Found
+          </h2>
+          <p className="text-base text-gray-600">
+            The form you are looking for does not exist.
+          </p>
         </div>
       </div>
     );
@@ -269,11 +300,23 @@ const FillForm = () => {
       <div className="min-h-screen bg-gray-50 flex items-center justify-center px-4">
         <div className="max-w-md mx-auto text-center bg-white border border-gray-200 rounded-lg shadow-sm p-8">
           <div className="mb-4">
-            <svg className="mx-auto h-16 w-16 text-red-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+            <svg
+              className="mx-auto h-16 w-16 text-red-500"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
+              />
             </svg>
           </div>
-          <h2 className="text-2xl font-bold text-gray-900 mb-3">Form Deactivated</h2>
+          <h2 className="text-2xl font-bold text-gray-900 mb-3">
+            Form Deactivated
+          </h2>
           <p className="text-base text-gray-600 mb-2">
             This form is currently not accepting responses.
           </p>
@@ -296,9 +339,7 @@ const FillForm = () => {
               {formData.title}
             </h1>
             {formData.description && (
-              <p className="text-base text-gray-600">
-                {formData.description}
-              </p>
+              <p className="text-base text-gray-600">{formData.description}</p>
             )}
           </div>
 
@@ -331,7 +372,8 @@ const FillForm = () => {
                     <span className="text-red-600 ml-1">*</span>
                   </label>
                 </div>
-                {formData.allowedBatches && formData.allowedBatches.length > 0 ? (
+                {formData.allowedBatches &&
+                formData.allowedBatches.length > 0 ? (
                   <select
                     value={batch}
                     onChange={(e) => setBatch(e.target.value)}
@@ -371,24 +413,28 @@ const FillForm = () => {
                       type="radio"
                       name="presence"
                       value="present"
-                      checked={isPresent === 'present'}
+                      checked={isPresent === "present"}
                       onChange={(e) => setIsPresent(e.target.value)}
                       required
                       className="w-4 h-4 text-green-600 border-gray-300 focus:ring-green-600"
                     />
-                    <span className="text-sm font-medium text-gray-900">Present</span>
+                    <span className="text-sm font-medium text-gray-900">
+                      Present
+                    </span>
                   </label>
                   <label className="flex items-center gap-3 cursor-pointer">
                     <input
                       type="radio"
                       name="presence"
                       value="absent"
-                      checked={isPresent === 'absent'}
+                      checked={isPresent === "absent"}
                       onChange={(e) => setIsPresent(e.target.value)}
                       required
                       className="w-4 h-4 text-red-600 border-gray-300 focus:ring-red-600"
                     />
-                    <span className="text-sm font-medium text-gray-900">Absent</span>
+                    <span className="text-sm font-medium text-gray-900">
+                      Absent
+                    </span>
                   </label>
                 </div>
                 {/* {isPresent === 'absent' && (
@@ -402,38 +448,42 @@ const FillForm = () => {
 
               {/* Show form questions only if student is present */}
               {/* Show form questions only if student is present */}
-              {isPresent === 'present' && formData.questions.map((question) => (
-                <div key={question._id} className="pb-6 border-b border-gray-200 last:border-b-0">
-                  {/* Question text */}
-                  <div className="mb-4">
-                    <label className="block text-base font-medium text-gray-900">
-                      {question.questionText}
-                      {question.required && (
-                        <span className="text-red-600 ml-1">*</span>
-                      )}
-                    </label>
-                  </div>
+              {isPresent === "present" &&
+                formData.questions.map((question) => (
+                  <div
+                    key={question._id}
+                    className="pb-6 border-b border-gray-200 last:border-b-0"
+                  >
+                    {/* Question text */}
+                    <div className="mb-4">
+                      <label className="block text-base font-medium text-gray-900">
+                        {question.questionText}
+                        {question.required && (
+                          <span className="text-red-600 ml-1">*</span>
+                        )}
+                      </label>
+                    </div>
 
-                  {/* Question input */}
-                  {renderQuestion(question)}
-                </div>
-              ))}
+                    {/* Question input */}
+                    {renderQuestion(question)}
+                  </div>
+                ))}
             </div>
 
             {/* Footer */}
             <div className="px-6 py-6 border-t border-gray-200">
               <button
                 type="submit"
-                disabled={(!isPresent && !studentName && ! batch)}
+                disabled={(!isPresent && !studentName && !batch) || submitting}
                 className={`px-8 py-3 font-medium rounded focus:outline-none focus:ring-2 focus:ring-blue-700 focus:ring-offset-2 ${
-                  isPresent && studentName && batch
-                    ? 'bg-blue-700 text-white hover:bg-blue-800'
-                    : 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                  isPresent && studentName && batch && !submitting
+                    ? "bg-blue-700 text-white hover:bg-blue-800"
+                    : "bg-gray-300 text-gray-500 cursor-not-allowed"
                 }`}
               >
-                Submit
+                {submitting ? "Submitting..." : "Submit"}
               </button>
-              {(!isPresent || !studentName || ! batch) && (
+              {(!isPresent || !studentName || !batch) && (
                 <p className="mt-2 text-sm text-gray-600">
                   Please fill the required feilds to submit the form.
                 </p>
