@@ -218,8 +218,9 @@ const ViewResponses = () => {
             
             {data.type === 'pie' && data.data.length > 0 && (
               <div className="flex flex-col md:flex-row items-center justify-center gap-8">
-                <ResponsiveContainer width="100%" height={300}>
-                  <PieChart>
+                <div className="w-full md:w-1/2" style={{ minWidth: 300, minHeight: 300 }}>
+                  <ResponsiveContainer width="100%" height={300}>
+                    <PieChart>
                     <Pie
                       data={data.data}
                       cx="50%"
@@ -237,6 +238,7 @@ const ViewResponses = () => {
                     <Tooltip />
                   </PieChart>
                 </ResponsiveContainer>
+                </div>
                 <div className="flex flex-col gap-2">
                   {data.data.map((entry, idx) => (
                     <div key={idx} className="flex items-center gap-2">
@@ -254,8 +256,9 @@ const ViewResponses = () => {
             )}
 
             {data.type === 'bar' && (
-              <ResponsiveContainer width="100%" height={300}>
-                <BarChart data={data.data}>
+              <div className="w-full" style={{ minHeight: 300 }}>
+                <ResponsiveContainer width="100%" height={300}>
+                  <BarChart data={data.data}>
                   <CartesianGrid strokeDasharray="3 3" />
                   <XAxis dataKey="stars" />
                   <YAxis />
@@ -264,6 +267,7 @@ const ViewResponses = () => {
                   <Bar dataKey="count" fill="#3B82F6" name="Number of Responses" />
                 </BarChart>
               </ResponsiveContainer>
+              </div>
             )}
 
             {data.type === 'text' && (
