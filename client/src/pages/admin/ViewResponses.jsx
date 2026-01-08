@@ -1,7 +1,28 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import api from '../../config/api';
-import { PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
+import { Pie, Bar } from 'react-chartjs-2';
+import {
+  Chart as ChartJS,
+  ArcElement,
+  CategoryScale,
+  LinearScale,
+  BarElement,
+  Title,
+  Tooltip,
+  Legend
+} from 'chart.js';
+
+// Register Chart.js components
+ChartJS.register(
+  ArcElement,
+  CategoryScale,
+  LinearScale,
+  BarElement,
+  Title,
+  Tooltip,
+  Legend
+);
 
 const ViewResponses = () => {
   const { formId } = useParams();
@@ -224,26 +245,40 @@ const ViewResponses = () => {
             
             {data.type === 'pie' && data.data.length > 0 && (
               <div className="flex flex-col md:flex-row items-center justify-center gap-8">
-                <div className="w-full md:w-1/2" style={{ minWidth: 300, minHeight: 300 }}>
-                  <ResponsiveContainer width="100%" height={300}>
-                    <PieChart>
-                      <Pie
-                        data={data.data}
-                        cx="50%"
-                        cy="50%"
-                        labelLine={false}
-                        label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}
-                        outerRadius={100}
-                        fill="#8884d8"
-                        dataKey="value"
-                      >
-                        {data.data.map((entry, index) => (
-                          <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                        ))}
-                      </Pie>
-                      <Tooltip />
-                    </PieChart>
-                  </ResponsiveContainer>
+                <div className="w-full md:w-1/2" style={{ maxWidth: 400, height: 300 }}>
+                  <Pie
+                    data={{
+                      labels: data.data.map(item => item.name),
+                      datasets: [
+                        {
+                          data: data.data.map(item => item.value),
+                          backgroundColor: COLORS,
+                          borderColor: COLORS.map(color => color),
+                          borderWidth: 1,
+                        }
+                      ]
+                    }}
+                    options={{
+                      responsive: true,
+                      maintainAspectRatio: true,
+                      plugins: {
+                        legend: {
+                          display: false
+                        },
+                        tooltip: {
+                          callbacks: {
+                            label: function(context) {
+                              const label = context.label || '';
+                              const value = context.parsed || 0;
+                              const total = context.dataset.data.reduce((a, b) => a + b, 0);
+                              const percentage = ((value / total) * 100).toFixed(0);
+                              return `${label}: ${value} (${percentage}%)`;
+                            }
+                          }
+                        }
+                      }
+                    }}
+                  />
                 </div>
                 <div className="flex flex-col gap-2">
                   {data.data.map((entry, idx) => (
@@ -262,17 +297,46 @@ const ViewResponses = () => {
             )}
 
             {data.type === 'bar' && (
-              <div className="w-full" style={{ minHeight: 300 }}>
-                <ResponsiveContainer width="100%" height={300}>
-                  <BarChart data={data.data}>
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="stars" />
-                  <YAxis />
-                  <Tooltip />
-                  <Legend />
-                  <Bar dataKey="count" fill="#3B82F6" name="Number of Responses" />
-                </BarChart>
-              </ResponsiveContainer>
+              <div className="w-full" style={{ height: 300 }}>
+                <Bar
+                  data={{
+                    labels: data.data.map(item => item.stars),
+                    datasets: [
+                      {
+                        label: 'Number of Responses',
+                        data: data.data.map(item => item.count),
+                        backgroundColor: '#3B82F6',
+                        borderColor: '#2563EB',
+                        borderWidth: 1,
+                      }
+                    ]
+                  }}
+                  options={{
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                      legend: {
+                        display: true,
+                        position: 'top',
+                      },
+                      tooltip: {
+                        callbacks: {
+                          label: function(context) {
+                            return `${context.dataset.label}: ${context.parsed.y}`;
+                          }
+                        }
+                      }
+                    },
+                    scales: {
+                      y: {
+                        beginAtZero: true,
+                        ticks: {
+                          stepSize: 1
+                        }
+                      }
+                    }
+                  }}
+                />
               </div>
             )}
 
