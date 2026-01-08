@@ -361,7 +361,7 @@ const CreateForm = () => {
         {/* Header */}
         <div>
           <button
-            onClick={() => navigate("/admin/dashboard")}
+            onClick={handleCancel}
             className="text-blue-700 hover:text-blue-900 font-medium mb-4"
           >
             ← Back to Dashboard
