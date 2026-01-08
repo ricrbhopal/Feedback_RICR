@@ -27,43 +27,15 @@ ChartJS.register(
 const ViewResponses = () => {
   const { formId } = useParams();
   const [responses, setResponses] = useState([]);
-  const [allResponses, setAllResponses] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [availableBatches, setAvailableBatches] = useState([]);
-  const [selectedBatches, setSelectedBatches] = useState([]);
   const [activeTab, setActiveTab] = useState('summary'); // 'summary' or 'individual'
   const [selectedStudent, setSelectedStudent] = useState('');
 
-  const fetchResponses = async (resetFilters = false) => {
+  const fetchResponses = async () => {
     try {
       setLoading(true);
-      
-      // Reset batch filter if requested
-      if (resetFilters) {
-        setSelectedBatches([]);
-      }
-
-      const params = {};
-      if (!resetFilters && selectedBatches.length > 0) {
-        params.batches = selectedBatches.join(',');
-      }
-
-      const res = await api.get(`/responses/${formId}/responses`, { params });
-      const data = res.data.data;
-      
-      setAllResponses(data);
-      
-      // Only set responses if batches are selected, otherwise keep it empty
-      if (selectedBatches.length > 0) {
-        setResponses(data);
-      } else {
-        setResponses([]);
-      }
-      
-      // Set available batches from backend
-      if (res.data.batches) {
-        setAvailableBatches(res.data.batches);
-      }
+      const res = await api.get(`/responses/${formId}/responses`);
+      setResponses(res.data.data);
     } catch (error) {
       console.error("Error fetching responses", error);
     } finally {
@@ -73,19 +45,7 @@ const ViewResponses = () => {
 
   useEffect(() => {
     fetchResponses();
-  }, [formId, selectedBatches]);
-
-  const handleBatchToggle = (batch) => {
-    setSelectedBatches(prev => 
-      prev.includes(batch) 
-        ? prev.filter(b => b !== batch)
-        : [...prev, batch]
-    );
-  };
-
-  const removeBatch = (batch) => {
-    setSelectedBatches(prev => prev.filter(b => b !== batch));
-  };
+  }, [formId]);
 
   const exportToCSV = () => {
     if (responses.length === 0) {
@@ -510,54 +470,7 @@ const ViewResponses = () => {
 
         {/* Header */}
         <div className="bg-white border border-gray-200 rounded-lg shadow-sm p-6 mb-6">
-          <h1 className="text-3xl font-bold text-gray-900 mb-4">Form Responses</h1>
-          
-          {/* Batch Filter */}
-          <div className="space-y-3">
-            <label className="block text-sm font-medium text-gray-700">
-              Filter by Batch
-            </label>
-            <div className="flex flex-wrap gap-2 items-center">
-              <select
-                onChange={(e) => {
-                  if (e.target.value && !selectedBatches.includes(e.target.value)) {
-                    handleBatchToggle(e.target.value);
-                  }
-                  e.target.value = '';
-                }}
-                className="px-4 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-700 focus:border-transparent"
-              >
-                <option value="">Select batch...</option>
-                {availableBatches.map((batch) => (
-                  <option key={batch} value={batch} disabled={selectedBatches.includes(batch)}>
-                    {batch}
-                  </option>
-                ))}
-              </select>
-            </div>
-            
-            {/* Selected Batches Tags */}
-            {selectedBatches.length > 0 && (
-              <div className="flex flex-wrap gap-2 mt-3">
-                {selectedBatches.map((batch) => (
-                  <div
-                    key={batch}
-                    className="flex items-center gap-2 px-3 py-1.5 bg-blue-100 text-blue-800 rounded-full text-sm font-medium"
-                  >
-                    <span>{batch}</span>
-                    <button
-                      onClick={() => removeBatch(batch)}
-                      className="hover:text-blue-900"
-                    >
-                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                      </svg>
-                    </button>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
+          <h1 className="text-3xl font-bold text-gray-900">Form Responses</h1>
         </div>
 
         {/* Responses Count and Export */}
@@ -567,7 +480,7 @@ const ViewResponses = () => {
           </p>
           <div className="flex gap-3">
             <button
-              onClick={() => fetchResponses(true)}
+              onClick={fetchResponses}
               className="px-6 py-2 bg-blue-700 text-white font-medium rounded hover:bg-blue-800 focus:outline-none focus:ring-2 focus:ring-blue-700 focus:ring-offset-2"
             >
               🔄 Refresh
@@ -612,17 +525,13 @@ const ViewResponses = () => {
         )}
 
         {/* Content based on active tab */}
-        {selectedBatches.length === 0 ? (
+        {responses.length === 0 ? (
           <div className="bg-white border border-gray-200 rounded-lg shadow-sm p-8 text-center">
             <svg className="mx-auto h-16 w-16 text-gray-400 mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
             </svg>
-            <p className="text-lg font-medium text-gray-900 mb-2">No Batch Selected</p>
-            <p className="text-gray-600">Please select at least one batch from the filter above to view responses.</p>
-          </div>
-        ) : responses.length === 0 ? (
-          <div className="bg-white border border-gray-200 rounded-lg shadow-sm p-8 text-center">
-            <p className="text-gray-600">No responses found for the selected batch(es).</p>
+            <p className="text-lg font-medium text-gray-900 mb-2">No Responses Yet</p>
+            <p className="text-gray-600">No responses have been submitted for this form.</p>
           </div>
         ) : (
           <>

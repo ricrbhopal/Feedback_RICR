@@ -129,7 +129,19 @@ const FillForm = () => {
       setSubmitting(false);
     } catch (error) {
       console.error("Error submitting form", error);
-      toast.error("Failed to submit form. Please try again.");
+      
+      // Check if the error is about duplicate submission
+      if (error.response && error.response.status === 400) {
+        const errorMessage = error.response.data.message;
+        if (errorMessage.includes("already submitted")) {
+          toast.error(errorMessage);
+        } else {
+          toast.error(errorMessage || "Failed to submit form. Please try again.");
+        }
+      } else {
+        toast.error("Failed to submit form. Please try again.");
+      }
+      
       setSubmitting(false);
     }
 

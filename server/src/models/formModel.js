@@ -76,6 +76,11 @@ const formSchema = new mongoose.Schema(
       default: true
     },
 
+    activatedAt: {
+      type: Date,
+      default: null
+    },
+
     expiresAt: {
       type: Date,
       default: null

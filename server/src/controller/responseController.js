@@ -28,6 +28,29 @@ export const submitResponse = async (req, res) => {
       }
     }
 
+    // Check if student has already submitted the form today
+    const startOfDay = new Date();
+    startOfDay.setHours(0, 0, 0, 0);
+    
+    const endOfDay = new Date();
+    endOfDay.setHours(23, 59, 59, 999);
+
+    const existingResponse = await Response.findOne({
+      form: formId,
+      studentName: studentName.trim(),
+      batch: batch.trim(),
+      submittedAt: {
+        $gte: startOfDay,
+        $lte: endOfDay
+      }
+    });
+
+    if (existingResponse) {
+      return res.status(400).json({ 
+        message: "You have already submitted this form today. Only one submission per day is allowed." 
+      });
+    }
+
     const response = await Response.create({
       form: formId,
       studentName,

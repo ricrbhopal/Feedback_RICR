@@ -42,6 +42,16 @@ export const getFormById = async (req, res, next) => {
       return next(error);
     }
 
+    // Check if form should be auto-deactivated (15 minutes after activation)
+    if (form.isActive && form.activatedAt) {
+      const fifteenMinutesAgo = new Date(Date.now() - 15 * 60 * 1000);
+      if (form.activatedAt < fifteenMinutesAgo) {
+        form.isActive = false;
+        form.activatedAt = null;
+        await form.save();
+      }
+    }
+
     res.status(200).json({
       data: form,
     });
@@ -111,6 +121,15 @@ export const toggleFormStatus = async (req, res, next) => {
     }
 
     form.isActive = !form.isActive;
+    
+    // If activating, set activatedAt timestamp
+    if (form.isActive) {
+      form.activatedAt = new Date();
+    } else {
+      // If deactivating manually, clear activatedAt
+      form.activatedAt = null;
+    }
+    
     await form.save();
 
     res.json({ 

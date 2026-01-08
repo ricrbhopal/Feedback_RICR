@@ -18,7 +18,37 @@ const CreateForm = () => {
 
   useEffect(() => {
     fetchTeachers();
+    
+    // Load saved form data from localStorage
+    const savedFormData = localStorage.getItem('createFormDraft');
+    if (savedFormData) {
+      try {
+        const parsedData = JSON.parse(savedFormData);
+        setFormTitle(parsedData.formTitle || '');
+        setFormDescription(parsedData.formDescription || '');
+        setQuestions(parsedData.questions || []);
+        setSelectedTeacher(parsedData.selectedTeacher || '');
+        setAllowedBatches(parsedData.allowedBatches || []);
+        toast.success('Draft form loaded from previous session');
+      } catch (error) {
+        console.error('Error loading saved form data:', error);
+      }
+    }
   }, []);
+
+  // Auto-save form data to localStorage whenever it changes
+  useEffect(() => {
+    if (formTitle || formDescription || questions.length > 0 || selectedTeacher || allowedBatches.length > 0) {
+      const formData = {
+        formTitle,
+        formDescription,
+        questions,
+        selectedTeacher,
+        allowedBatches
+      };
+      localStorage.setItem('createFormDraft', JSON.stringify(formData));
+    }
+  }, [formTitle, formDescription, questions, selectedTeacher, allowedBatches]);
 
   const fetchTeachers = async () => {
     try {
@@ -61,27 +91,35 @@ const CreateForm = () => {
   };
 
   const handleDragStart = (e, index) => {
+    e.stopPropagation();
     e.dataTransfer.effectAllowed = 'move';
     e.dataTransfer.setData('text/html', index);
+    // Prevent default link behavior
+    e.dataTransfer.setData('text/plain', '');
     setDraggedIndex(index);
   };
 
   const handleDragOver = (e, index) => {
     e.preventDefault();
+    e.stopPropagation();
     e.dataTransfer.dropEffect = 'move';
     setDragOverIndex(index);
   };
 
-  const handleDragEnd = () => {
+  const handleDragEnd = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
     setDraggedIndex(null);
     setDragOverIndex(null);
   };
 
   const handleDrop = (e, dropIndex) => {
     e.preventDefault();
+    e.stopPropagation();
+    
     const dragIndex = parseInt(e.dataTransfer.getData('text/html'));
     
-    if (dragIndex === dropIndex) {
+    if (dragIndex === dropIndex || isNaN(dragIndex)) {
       setDraggedIndex(null);
       setDragOverIndex(null);
       return;
@@ -253,6 +291,10 @@ const CreateForm = () => {
       };
 
       await api.post("/forms", formData);
+      
+      // Clear localStorage after successful submission
+      localStorage.removeItem('createFormDraft');
+      
       toast.success("Form created successfully!");
       navigate("/admin/dashboard");
     } catch (error) {
@@ -469,13 +511,18 @@ const CreateForm = () => {
                       onDragOver={(e) => handleDragOver(e, index)}
                       onDragEnd={handleDragEnd}
                       onDrop={(e) => handleDrop(e, index)}
+                      onDragLeave={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                      }}
                       className={`border rounded p-4 transition-all duration-200 ${
                         draggedIndex === index
                           ? 'opacity-40 scale-95 border-blue-400 bg-blue-50'
                           : dragOverIndex === index && draggedIndex !== null
                           ? 'border-blue-500 border-2 bg-blue-50 shadow-lg scale-105'
                           : 'border-gray-200 bg-gray-50 hover:border-blue-300'
-                      } cursor-move`}
+                      } cursor-move select-none`}
+                      style={{ userSelect: 'none', WebkitUserSelect: 'none' }}
                     >
                       {/* Question header */}
                       <div className="flex items-start justify-between mb-3">
@@ -509,7 +556,7 @@ const CreateForm = () => {
                       <div className="mb-3">
                         <input
                           type="text"
-                          value={question.questionText}
+                          value={question.questionText || ""}
                           onChange={(e) =>
                             handleQuestionChange(
                               question.id,
@@ -519,6 +566,7 @@ const CreateForm = () => {
                           }
                           className="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-700 focus:border-transparent"
                           placeholder="Enter question text"
+                          draggable={false}
                         />
                       </div>
 
