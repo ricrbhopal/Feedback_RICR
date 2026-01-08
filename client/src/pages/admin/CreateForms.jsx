@@ -91,33 +91,26 @@ const CreateForm = () => {
   };
 
   const handleDragStart = (e, index) => {
-    e.stopPropagation();
     e.dataTransfer.effectAllowed = 'move';
-    e.dataTransfer.setData('text/html', index);
-    // Prevent default link behavior
-    e.dataTransfer.setData('text/plain', '');
+    e.dataTransfer.setData('text/plain', index.toString());
     setDraggedIndex(index);
   };
 
   const handleDragOver = (e, index) => {
     e.preventDefault();
-    e.stopPropagation();
     e.dataTransfer.dropEffect = 'move';
     setDragOverIndex(index);
   };
 
   const handleDragEnd = (e) => {
-    e.preventDefault();
-    e.stopPropagation();
     setDraggedIndex(null);
     setDragOverIndex(null);
   };
 
   const handleDrop = (e, dropIndex) => {
     e.preventDefault();
-    e.stopPropagation();
     
-    const dragIndex = parseInt(e.dataTransfer.getData('text/html'));
+    const dragIndex = parseInt(e.dataTransfer.getData('text/plain'));
     
     if (dragIndex === dropIndex || isNaN(dragIndex)) {
       setDraggedIndex(null);
@@ -304,6 +297,26 @@ const CreateForm = () => {
   };
 
   const handleCancel = () => {
+    // Check if there's any unsaved data in localStorage
+    const savedFormData = localStorage.getItem('createFormDraft');
+    
+    if (savedFormData) {
+      const shouldKeepDraft = window.confirm(
+        "You have unsaved progress. Do you want to keep your draft?\n\n" +
+        "Click 'OK' to keep your draft and return later.\n" +
+        "Click 'Cancel' to discard your draft."
+      );
+      
+      if (!shouldKeepDraft) {
+        // User chose to discard the draft
+        localStorage.removeItem('createFormDraft');
+        toast.success("Draft discarded");
+      } else {
+        // User chose to keep the draft
+        toast.success("Draft saved for later");
+      }
+    }
+    
     navigate("/admin/dashboard");
   };
 
@@ -511,10 +524,6 @@ const CreateForm = () => {
                       onDragOver={(e) => handleDragOver(e, index)}
                       onDragEnd={handleDragEnd}
                       onDrop={(e) => handleDrop(e, index)}
-                      onDragLeave={(e) => {
-                        e.preventDefault();
-                        e.stopPropagation();
-                      }}
                       className={`border rounded p-4 transition-all duration-200 ${
                         draggedIndex === index
                           ? 'opacity-40 scale-95 border-blue-400 bg-blue-50'
