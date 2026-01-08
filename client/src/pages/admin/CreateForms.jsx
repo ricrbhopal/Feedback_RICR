@@ -15,6 +15,7 @@ const CreateForm = () => {
   const [batchInput, setBatchInput] = useState("");
   const [draggedIndex, setDraggedIndex] = useState(null);
   const [dragOverIndex, setDragOverIndex] = useState(null);
+  const [showCancelModal, setShowCancelModal] = useState(false);
 
   useEffect(() => {
     fetchTeachers();
@@ -301,22 +302,24 @@ const CreateForm = () => {
     const savedFormData = localStorage.getItem('createFormDraft');
     
     if (savedFormData) {
-      const shouldKeepDraft = window.confirm(
-        "You have unsaved progress. Do you want to keep your draft?\n\n" +
-        "Click 'OK' to keep your draft and return later.\n" +
-        "Click 'Cancel' to discard your draft."
-      );
-      
-      if (!shouldKeepDraft) {
-        // User chose to discard the draft
-        localStorage.removeItem('createFormDraft');
-        toast.success("Draft discarded");
-      } else {
-        // User chose to keep the draft
-        toast.success("Draft saved for later");
-      }
+      // Show custom modal
+      setShowCancelModal(true);
+    } else {
+      // No unsaved data, navigate directly
+      navigate("/admin/dashboard");
     }
-    
+  };
+
+  const handleDiscardDraft = () => {
+    localStorage.removeItem('createFormDraft');
+    toast.success("Draft discarded");
+    setShowCancelModal(false);
+    navigate("/admin/dashboard");
+  };
+
+  const handleKeepDraft = () => {
+    toast.success("Draft saved for later");
+    setShowCancelModal(false);
     navigate("/admin/dashboard");
   };
 
@@ -357,6 +360,34 @@ const CreateForm = () => {
 
   return (
     <div className="min-h-screen bg-gray-50 py-8 px-4">
+      {/* Custom Cancel Confirmation Modal */}
+      {showCancelModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg shadow-xl p-6 max-w-md w-full mx-4">
+            <h3 className="text-xl font-bold text-gray-900 mb-4">
+              Unsaved Progress
+            </h3>
+            <p className="text-gray-600 mb-6">
+              You have unsaved changes. Would you like to save your draft to continue later?
+            </p>
+            <div className="flex gap-3 justify-end">
+              <button
+                onClick={handleDiscardDraft}
+                className="px-6 py-2 bg-gray-200 text-gray-700 font-medium rounded hover:bg-gray-300 focus:outline-none focus:ring-2 focus:ring-gray-400 transition-colors"
+              >
+                No, Don't Save
+              </button>
+              <button
+                onClick={handleKeepDraft}
+                className="px-6 py-2 bg-blue-700 text-white font-medium rounded hover:bg-blue-800 focus:outline-none focus:ring-2 focus:ring-blue-700 focus:ring-offset-2 transition-colors"
+              >
+                Yes, Save Draft
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       <div className="max-w-6xl mx-auto">
         {/* Header */}
         <div>
