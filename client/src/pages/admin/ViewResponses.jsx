@@ -1,7 +1,9 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import api from '../../config/api';
+import toast from 'react-hot-toast';
 import { Pie, Bar } from 'react-chartjs-2';
+import ExcelJS from 'exceljs';
 import {
   Chart as ChartJS,
   ArcElement,
@@ -47,63 +49,84 @@ const ViewResponses = () => {
     fetchResponses();
   }, [formId]);
 
-  const exportToCSV = () => {
+  const exportToExcel = async () => {
     if (responses.length === 0) {
       alert('No data to export');
       return;
     }
 
-    // Prepare CSV headers
-    const headers = ['Student Name', 'Batch', 'Submission Date', 'Submission Time'];
-    
-    // Get questions from the first response's form
-    if (responses[0].form && responses[0].form.questions) {
-      responses[0].form.questions.forEach(q => {
-        headers.push(q.questionText);
-      });
-    } else {
-      const maxAnswers = Math.max(...responses.map(r => r.answers.length));
-      for (let i = 1; i <= maxAnswers; i++) {
-        headers.push(`Question ${i}`);
+    try {
+      // Create workbook and worksheet
+      const workbook = new ExcelJS.Workbook();
+      const worksheet = workbook.addWorksheet('Form Responses');
+
+      // Prepare headers
+      const headers = ['Student Name', 'Batch', 'Submission Date', 'Submission Time'];
+      
+      if (responses[0].form && responses[0].form.questions) {
+        responses[0].form.questions.forEach(q => {
+          headers.push(q.questionText);
+        });
+      } else {
+        const maxAnswers = Math.max(...responses.map(r => r.answers.length));
+        for (let i = 1; i <= maxAnswers; i++) {
+          headers.push(`Question ${i}`);
+        }
       }
-    }
 
-    // Prepare CSV rows
-    const rows = responses.map(response => {
-      const row = [
-        response.studentName,
-        response.batch || 'N/A',
-        new Date(response.submittedAt).toLocaleDateString(),
-        new Date(response.submittedAt).toLocaleTimeString()
-      ];
+      // Add header row with styling
+      const headerRow = worksheet.addRow(headers);
+      headerRow.font = { bold: true, color: { argb: 'FFFFFFFF' } };
+      headerRow.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF366092' } };
+      headerRow.alignment = { horizontal: 'center', vertical: 'center', wrapText: true };
 
-      // Add answers
-      response.answers.forEach(answerObj => {
-        const answer = Array.isArray(answerObj.answer)
-          ? answerObj.answer.join('; ')
-          : answerObj.answer;
-        row.push(answer);
+      // Add data rows
+      responses.forEach(response => {
+        const row = [
+          response.studentName,
+          response.batch || 'N/A',
+          new Date(response.submittedAt).toLocaleDateString(),
+          new Date(response.submittedAt).toLocaleTimeString()
+        ];
+
+        response.answers.forEach(answerObj => {
+          const answer = Array.isArray(answerObj.answer)
+            ? answerObj.answer.join('; ')
+            : answerObj.answer;
+          row.push(answer);
+        });
+
+        worksheet.addRow(row);
       });
 
-      return row;
-    });
+      // Set column widths and wrap text
+      worksheet.columns.forEach(column => {
+        column.width = 20;
+        column.alignment = { wrapText: true, vertical: 'top' };
+      });
 
-    // Convert to CSV string
-    const csvContent = [
-      headers.join(','),
-      ...rows.map(row => row.map(cell => `"${cell}"`).join(','))
-    ].join('\n');
+      // Set row heights
+      worksheet.rows.forEach(row => {
+        row.height = 30;
+      });
 
-    // Create and download file
-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-    const link = document.createElement('a');
-    const url = URL.createObjectURL(blob);
-    link.setAttribute('href', url);
-    link.setAttribute('download', `form_responses_${formId}_${new Date().toISOString().split('T')[0]}.csv`);
-    link.style.visibility = 'hidden';
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+      // Generate Excel file and download
+      const buffer = await workbook.xlsx.writeBuffer();
+      const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `form_responses_${formId}_${new Date().toISOString().split('T')[0]}.xlsx`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+      
+      toast.success('Excel file downloaded successfully!');
+    } catch (error) {
+      console.error('Error exporting to Excel:', error);
+      toast.error('Failed to export Excel file');
+    }
   };
 
   // Process data for visualizations
@@ -487,7 +510,7 @@ const ViewResponses = () => {
             </button>
             {responses.length > 0 && (
               <button
-                onClick={exportToCSV}
+                onClick={exportToExcel}
                 className="px-6 py-2 bg-green-700 text-white font-medium rounded hover:bg-green-800 focus:outline-none focus:ring-2 focus:ring-green-700 focus:ring-offset-2"
               >
                 Export to Excel

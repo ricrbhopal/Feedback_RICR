@@ -9,7 +9,9 @@
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
     "dev": "nodemon index.js",
-    "seed:admin": "node src/seeders/adminSeeder.js"
+    "seed:admin": "node src/seeders/adminSeeder.js",
+    "migrate:forms": "node src/seeders/migrateFormData.js",
+    "normalize:forms": "node src/seeders/normalizeFormData.js"
   },
   "dependencies": {
     "bcryptjs": "^3.0.3",

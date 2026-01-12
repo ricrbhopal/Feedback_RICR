@@ -7,20 +7,40 @@ export const createForm = async (req, res, next) => {
   try {
     const { title, description, questions, assignedTo, allowedBatches } = req.body;
 
-    if (!title || !questions || !Array.isArray(questions) || !assignedTo) {
+    if (!title || !questions || !Array.isArray(questions)) {
       const error = new Error("Invalid form data");
       error.statusCode = 400;
       return next(error);
     }
 
-    const form = await Form.create({
+    // Admin form: assign to teachers immediately (approved)
+    // Teacher form: no assignedTo, pending approval
+    let formData = {
       title,
       description,
       questions,
       createdBy: req.user._id,
-      assignedTo: assignedTo,
+      createdByRole: req.user.role,
       allowedBatches: allowedBatches || [],
-    });
+    };
+
+    if (req.user.role === "admin") {
+      // Admin creating form for a teacher
+      if (!assignedTo) {
+        const error = new Error("assignedTo is required for admin");
+        error.statusCode = 400;
+        return next(error);
+      }
+      formData.assignedTo = assignedTo;
+      formData.approvalStatus = "approved";
+      formData.approvedBy = req.user._id;
+      formData.approvedAt = new Date();
+    } else {
+      // Teacher creating form (pending approval)
+      formData.approvalStatus = "pending";
+    }
+
+    const form = await Form.create(formData);
 
     res.status(201).json({
       message: "Form created successfully",
@@ -40,6 +60,27 @@ export const getFormById = async (req, res, next) => {
       const error = new Error("Form not found");
       error.statusCode = 404;
       return next(error);
+    }
+
+    // Check if user is authenticated and is admin or the creator
+    // If not authenticated or not admin, only allow approved and active forms
+    if (req.user) {
+      // User is authenticated
+      if (req.user.role !== "admin" && form.createdBy.toString() !== req.user._id.toString()) {
+        // Not admin and not the creator - check approval status
+        if (form.approvalStatus !== "approved") {
+          const error = new Error("Form not available");
+          error.statusCode = 403;
+          return next(error);
+        }
+      }
+    } else {
+      // User is not authenticated - only allow approved forms
+      if (form.approvalStatus !== "approved") {
+        const error = new Error("Form not available");
+        error.statusCode = 403;
+        return next(error);
+      }
     }
 
     // Check if form should be auto-deactivated (15 minutes after activation)
@@ -65,12 +106,18 @@ export const getAllForms = async (req, res, next) => {
     let forms;
 
     if (req.user.role === "admin") {
-      // Admin sees all forms
+      // Admin sees all forms (created by admin and pending/approved from teachers)
       forms = await Form.find().sort({ createdAt: -1 });
     } else {
-      // Teacher sees only forms assigned to them
-      forms = await Form.find({ assignedTo: req.user._id })
-        .sort({ createdAt: -1 });
+      // Teacher sees:
+      // 1. Forms created by them
+      // 2. Forms assigned to them by admin that are approved
+      forms = await Form.find({
+        $or: [
+          { createdBy: req.user._id },
+          { assignedTo: req.user._id, approvalStatus: "approved" }
+        ]
+      }).sort({ createdAt: -1 });
     }
 
     res.json({ data: forms });
@@ -150,12 +197,20 @@ export const updateForm = async (req, res, next) => {
       return res.status(404).json({ message: "Form not found" });
     }
 
-    // Only admin can update forms
-    if (req.user.role !== "admin") {
+    // Teacher can update their own pending forms
+    // Admin can update any form
+    if (req.user.role === "teacher") {
+      if (form.createdBy.toString() !== req.user._id.toString()) {
+        return res.status(403).json({ message: "Not allowed" });
+      }
+      if (form.approvalStatus !== "pending") {
+        return res.status(403).json({ message: "Can only edit pending forms" });
+      }
+    } else if (req.user.role !== "admin") {
       return res.status(403).json({ message: "Not allowed" });
     }
 
-    if (!title || !questions || !Array.isArray(questions) || !assignedTo) {
+    if (!title || !questions || !Array.isArray(questions)) {
       const error = new Error("Invalid form data");
       error.statusCode = 400;
       return next(error);
@@ -164,13 +219,88 @@ export const updateForm = async (req, res, next) => {
     form.title = title;
     form.description = description;
     form.questions = questions;
-    form.assignedTo = assignedTo;
     form.allowedBatches = allowedBatches || [];
+
+    // Admin can also change assignedTo and approval status
+    if (req.user.role === "admin") {
+      form.assignedTo = assignedTo || form.assignedTo;
+    }
 
     await form.save();
 
     res.json({
       message: "Form updated successfully",
+      data: form
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const approveForm = async (req, res, next) => {
+  try {
+    const form = await Form.findById(req.params.id);
+
+    if (!form) {
+      return res.status(404).json({ message: "Form not found" });
+    }
+
+    // Only admin can approve forms
+    if (req.user.role !== "admin") {
+      return res.status(403).json({ message: "Not allowed" });
+    }
+
+    if (form.approvalStatus !== "pending") {
+      return res.status(400).json({ message: "Form is not pending approval" });
+    }
+
+    const { assignedTo } = req.body;
+    if (!assignedTo) {
+      return res.status(400).json({ message: "assignedTo is required" });
+    }
+
+    form.approvalStatus = "approved";
+    form.approvedBy = req.user._id;
+    form.approvedAt = new Date();
+    form.assignedTo = assignedTo;
+
+    await form.save();
+
+    res.json({
+      message: "Form approved successfully",
+      data: form
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const rejectForm = async (req, res, next) => {
+  try {
+    const form = await Form.findById(req.params.id);
+
+    if (!form) {
+      return res.status(404).json({ message: "Form not found" });
+    }
+
+    // Only admin can reject forms
+    if (req.user.role !== "admin") {
+      return res.status(403).json({ message: "Not allowed" });
+    }
+
+    if (form.approvalStatus !== "pending") {
+      return res.status(400).json({ message: "Form is not pending approval" });
+    }
+
+    const { reason } = req.body;
+
+    form.approvalStatus = "rejected";
+    form.rejectionReason = reason || "Rejected by admin";
+
+    await form.save();
+
+    res.json({
+      message: "Form rejected successfully",
       data: form
     });
   } catch (error) {
