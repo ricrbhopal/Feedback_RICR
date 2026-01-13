@@ -16,6 +16,8 @@ import ViewResponses from './pages/admin/ViewResponses.jsx'
 import TeacherDashboard from './pages/Teacher/Dashboard.jsx'
 import TeacherViewForm from './pages/Teacher/ViewForm.jsx'
 import TeacherViewResponses from './pages/Teacher/ViewResponses.jsx'
+import TeacherCreateForm from './pages/Teacher/CreateForm.jsx'
+import TeacherEditForm from './pages/Teacher/EditForm.jsx'
 
 
 
@@ -65,6 +67,16 @@ const App = () => {
       <Route path="/teacher/dashboard" element={
         <ProtectedRoute allowedRoles={['teacher']}>
           <TeacherDashboard />
+        </ProtectedRoute>
+      } />
+      <Route path="/teacher/create-form" element={
+        <ProtectedRoute allowedRoles={['teacher']}>
+          <TeacherCreateForm />
+        </ProtectedRoute>
+      } />
+      <Route path="/teacher/forms/:id/edit" element={
+        <ProtectedRoute allowedRoles={['teacher']}>
+          <TeacherEditForm />
         </ProtectedRoute>
       } />
       <Route path="/teacher/forms/:id" element={
