@@ -46,8 +46,8 @@ export const createForm = async (req, res, next) => {
       formData.approvalStatus = "approved";
       formData.approvedBy = req.user._id;
       formData.approvedAt = new Date();
-      // Admin-created forms are active by default
-      formData.isActive = true;
+      // Admin-created forms should remain inactive until manually activated
+      formData.isActive = false;
     } else {
       // Teacher creating form (pending approval)
       formData.approvalStatus = "pending";
@@ -286,9 +286,9 @@ export const approveForm = async (req, res, next) => {
     form.approvedAt = new Date();
     form.assignedTo = assignedTo;
 
-    // Activate the form when approved
-    form.isActive = true;
-    form.activatedAt = new Date();
+    // Do NOT auto-activate on approval; admin will manually activate when ready
+    form.isActive = false;
+    form.activatedAt = null;
 
     await form.save();
 
