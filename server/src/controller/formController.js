@@ -103,9 +103,16 @@ export const getFormById = async (req, res, next) => {
 
 export const getAllForms = async (req, res, next) => {
   try {
-    let forms;
+    // Support query param ?assigned=true to return only forms assigned to the
+    // authenticated teacher (approved forms assigned to them). This allows
+    // the frontend to fetch assigned forms directly from the backend.
+    const onlyAssigned = req.query.assigned === 'true';
 
-    if (req.user.role === "admin") {
+    let forms;
+    if (onlyAssigned) {
+      // Only teachers should call this; admins can still use it but will get all assigned forms
+      forms = await Form.find({ assignedTo: req.user._id, approvalStatus: "approved" }).sort({ createdAt: -1 });
+    } else if (req.user.role === "admin") {
       // Admin sees all forms (created by admin and pending/approved from teachers)
       forms = await Form.find().sort({ createdAt: -1 });
     } else {

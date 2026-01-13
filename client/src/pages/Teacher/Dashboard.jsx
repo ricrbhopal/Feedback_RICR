@@ -14,6 +14,7 @@ const TeacherDashboard = () => {
   });
 
   const [allForms, setAllForms] = useState([]);
+  const [assignedForms, setAssignedForms] = useState([]);
   const [qrModalOpen, setQrModalOpen] = useState(false);
   const [selectedFormLink, setSelectedFormLink] = useState("");
   const [selectedFormTitle, setSelectedFormTitle] = useState("");
@@ -24,6 +25,15 @@ const TeacherDashboard = () => {
       setAllForms(res.data.data);
     } catch (error) {
       console.error("Error fetching forms", error);
+    }
+  };
+
+  const fetchAssignedForms = async () => {
+    try {
+      const res = await api.get('/forms?assigned=true');
+      setAssignedForms(res.data.data || []);
+    } catch (error) {
+      console.error('Error fetching assigned forms', error);
     }
   };
 
@@ -39,11 +49,11 @@ const TeacherDashboard = () => {
   useEffect(() => {
     fetchForms();
     fetchStats();
+    fetchAssignedForms();
   }, []);
 
   // Separate forms into created by teacher and assigned to teacher
   const createdForms = allForms.filter(form => form.createdBy === user?._id);
-  const assignedForms = allForms.filter(form => form.assignedTo === user?._id && form.createdByRole === "admin");
 
   const handleCopyLink = (formId) => {
     const link = `${import.meta.env.VITE_FRONTEND_URL}/form/${formId}`;
@@ -64,6 +74,7 @@ const TeacherDashboard = () => {
       toast.success(res.data.message);
       fetchForms();
       fetchStats();
+      fetchAssignedForms();
     } catch (error) {
       console.error("Error toggling form status", error);
       toast.error("Error updating form status");
@@ -81,8 +92,9 @@ const TeacherDashboard = () => {
               try {
                 await api.delete(`/forms/${formId}`);
                 toast.success('Form deleted successfully');
-                fetchForms();
-                fetchStats();
+                            fetchForms();
+                            fetchStats();
+                            fetchAssignedForms();
               } catch (error) {
                 console.error("Error deleting form", error);
                 toast.error('Error deleting form');
