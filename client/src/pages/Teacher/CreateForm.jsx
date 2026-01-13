@@ -247,8 +247,11 @@ const TeacherCreateForm = () => {
         description: formDescription,
         questions,
         allowedBatches,
-        assignedTo: user?._id,
       };
+
+      if (user && user._id) {
+        formData.assignedTo = user._id;
+      }
 
       console.log('Submitting teacher formData', formData);
       await api.post("/forms", formData);

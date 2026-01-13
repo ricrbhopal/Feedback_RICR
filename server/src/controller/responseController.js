@@ -77,11 +77,12 @@ export const getFormResponses = async (req, res, next) => {
       return res.status(404).json({ message: "Form not found" });
     }
 
-    if (
-      req.user.role !== "admin" &&
-      form.assignedTo.toString() !== req.user._id.toString()
-    ) {
-      return res.status(403).json({ message: "Not allowed" });
+    if (req.user.role !== "admin") {
+      const isAssignedToUser = form.assignedTo && form.assignedTo.toString() === req.user._id.toString();
+      const isCreator = form.createdBy && form.createdBy.toString() === req.user._id.toString();
+      if (!isAssignedToUser && !isCreator) {
+        return res.status(403).json({ message: "Not allowed" });
+      }
     }
 
     // Build query filter

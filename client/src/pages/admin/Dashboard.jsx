@@ -24,6 +24,12 @@ const Dashboard = () => {
   const [selectedTeacherForForm, setSelectedTeacherForForm] = useState("");
   const [rejectionReason, setRejectionReason] = useState("");
   const [teachers, setTeachers] = useState([]);
+  // Local editable copy for inline edit-in-approval
+  const [localTitle, setLocalTitle] = useState("");
+  const [localDescription, setLocalDescription] = useState("");
+  const [localQuestions, setLocalQuestions] = useState([]);
+  const [localAllowedBatches, setLocalAllowedBatches] = useState([]);
+  const [localBatchInput, setLocalBatchInput] = useState("");
 
   const fetchForms = async () => {
     try {
@@ -57,6 +63,151 @@ const Dashboard = () => {
     fetchStats();
     fetchTeachers();
   }, []);
+
+  // Populate local editable copy whenever modal opens for a form
+  useEffect(() => {
+    if (approvalModalOpen && selectedFormForApproval) {
+      setLocalTitle(selectedFormForApproval.title || "");
+      setLocalDescription(selectedFormForApproval.description || "");
+      setLocalQuestions(
+        (selectedFormForApproval.questions || []).map((q) => ({
+          ...(q._id ? { _id: q._id } : {}),
+          id: q._id || Date.now() + Math.random(),
+          questionText: q.questionText || q.question || "",
+          type: q.type || "short",
+          options: q.options || [],
+          maxStars: q.maxStars || 5,
+          required: q.required !== undefined ? q.required : true,
+        }))
+      );
+      setLocalAllowedBatches(selectedFormForApproval.allowedBatches || []);
+    }
+  }, [approvalModalOpen, selectedFormForApproval]);
+
+  // Question handlers for inline edit
+  const handleAddQuestion = () => {
+    const newQuestion = {
+      id: Date.now(),
+      questionText: "",
+      type: "short",
+      options: [""],
+      maxStars: 5,
+      required: true,
+    };
+    setLocalQuestions([...localQuestions, newQuestion]);
+  };
+
+  const handleRemoveQuestion = (questionId) => {
+    setLocalQuestions(localQuestions.filter((q) => q.id !== questionId));
+  };
+
+  const handleQuestionChange = (questionId, field, value) => {
+    setLocalQuestions(
+      localQuestions.map((q) => {
+        if (q.id !== questionId) return q;
+        const updated = { ...q, [field]: value };
+        if (field === 'type') {
+          const needsOptions = ['mcq', 'checkbox', 'dropdown', 'yes_no'].includes(value);
+          const hadOptions = ['mcq', 'checkbox', 'dropdown', 'yes_no'].includes(q.type);
+          if (value === 'yes_no') {
+            updated.options = ['Yes', 'No'];
+          } else if (needsOptions && !hadOptions) {
+            updated.options = ['', ''];
+          } else if (!needsOptions && hadOptions) {
+            updated.options = [];
+          }
+          if (value === 'star_rating' && !q.maxStars) updated.maxStars = 5;
+        }
+        return updated;
+      })
+    );
+  };
+
+  const handleAddOption = (questionId) => {
+    setLocalQuestions(
+      localQuestions.map((q) =>
+        q.id === questionId ? { ...q, options: [...q.options, ""] } : q
+      )
+    );
+  };
+
+  const handleRemoveOption = (questionId, optionIndex) => {
+    setLocalQuestions(
+      localQuestions.map((q) =>
+        q.id === questionId
+          ? { ...q, options: q.options.filter((_, i) => i !== optionIndex) }
+          : q
+      )
+    );
+  };
+
+  const handleOptionChange = (questionId, optionIndex, value) => {
+    setLocalQuestions(
+      localQuestions.map((q) =>
+        q.id === questionId
+          ? { ...q, options: q.options.map((opt, i) => (i === optionIndex ? value : opt)) }
+          : q
+      )
+    );
+  };
+
+  const handleAddBatch = () => {
+    if (localBatchInput.trim() && !localAllowedBatches.includes(localBatchInput.trim())) {
+      setLocalAllowedBatches([...localAllowedBatches, localBatchInput.trim()]);
+      setLocalBatchInput('');
+    }
+  };
+
+  const handleRemoveBatch = (batchToRemove) => {
+    setLocalAllowedBatches(localAllowedBatches.filter((b) => b !== batchToRemove));
+  };
+
+  const buildUpdatePayload = () => ({
+    title: localTitle,
+    description: localDescription,
+    questions: localQuestions.map((q) => ({
+      questionText: q.questionText,
+      type: q.type,
+      options: q.options,
+      maxStars: q.maxStars,
+      required: q.required,
+    })),
+    allowedBatches: localAllowedBatches,
+    assignedTo: selectedTeacherForForm || undefined,
+  });
+
+  const handleSaveChanges = async () => {
+    try {
+      const payload = buildUpdatePayload();
+      await api.put(`/forms/${selectedFormForApproval._id}`, payload);
+      toast.success('Form updated successfully');
+      fetchForms();
+    } catch (error) {
+      console.error('Error saving changes', error);
+      toast.error('Error saving changes');
+    }
+  };
+
+  const handleApproveForm = async () => {
+    try {
+      // First, save any inline edits
+      const payload = buildUpdatePayload();
+      await api.put(`/forms/${selectedFormForApproval._id}`, payload);
+      // Then approve
+      const approvePayload = {};
+      if (selectedTeacherForForm) approvePayload.assignedTo = selectedTeacherForForm;
+
+      await api.patch(`/forms/${selectedFormForApproval._id}/approve`, approvePayload);
+      toast.success('Form approved successfully!');
+      setApprovalModalOpen(false);
+      setSelectedFormForApproval(null);
+      setSelectedTeacherForForm('');
+      fetchForms();
+    } catch (error) {
+      console.error('Error approving form', error);
+      toast.error('Error approving form');
+    }
+  };
 
   const handleDeleteForm = async (formId) => {
     toast((t) => (
@@ -118,26 +269,7 @@ const Dashboard = () => {
     }
   };
 
-  const handleApproveForm = async () => {
-    if (!selectedTeacherForForm) {
-      toast.error("Please select a teacher to assign this form");
-      return;
-    }
-
-    try {
-      await api.patch(`/forms/${selectedFormForApproval._id}/approve`, {
-        assignedTo: selectedTeacherForForm
-      });
-      toast.success("Form approved successfully!");
-      setApprovalModalOpen(false);
-      setSelectedFormForApproval(null);
-      setSelectedTeacherForForm("");
-      fetchForms();
-    } catch (error) {
-      console.error("Error approving form", error);
-      toast.error("Error approving form");
-    }
-  };
+  
 
   const handleRejectForm = async () => {
     try {
@@ -278,7 +410,9 @@ const Dashboard = () => {
                         {form.title}
                       </td>
                       <td className="px-6 py-4 text-sm text-gray-600">
-                        Teacher
+                        {selectedFormForApproval && selectedFormForApproval._id === form._id
+                          ? (form.createdBy?.fullName || form.createdBy || 'Teacher')
+                          : (form.createdBy?.fullName || form.createdBy || 'Teacher')}
                       </td>
                       <td className="px-6 py-4 text-sm text-gray-600">
                         {new Date(form.createdAt).toLocaleDateString()}
@@ -288,6 +422,7 @@ const Dashboard = () => {
                           <button
                             onClick={() => {
                               setSelectedFormForApproval(form);
+                              setSelectedTeacherForForm(form.assignedTo || form.createdBy || "");
                               setApprovalModalOpen(true);
                             }}
                             className="px-3 py-1.5 bg-green-600 text-white text-xs font-medium rounded hover:bg-green-700 transition-colors"
@@ -297,6 +432,7 @@ const Dashboard = () => {
                           <button
                             onClick={() => {
                               setSelectedFormForApproval(form);
+                              setSelectedTeacherForForm(form.assignedTo || form.createdBy || "");
                               setApprovalModalOpen(true);
                             }}
                             className="px-3 py-1.5 bg-red-600 text-white text-xs font-medium rounded hover:bg-red-700 transition-colors"
@@ -446,32 +582,118 @@ const Dashboard = () => {
               </p>
             </div>
 
-            {/* Approve Tab */}
-            <div className="mb-6 p-4 border-2 border-green-200 rounded-lg bg-green-50">
-              <h4 className="font-semibold text-green-900 mb-4">Approve Form</h4>
+            {/* Inline Edit + Approve */}
+            <div className="mb-6 p-4 border-2 border-blue-200 rounded-lg bg-white">
+              <h4 className="font-semibold text-blue-900 mb-4">Edit Form (Inline)</h4>
+
               <div className="mb-4">
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Assign to Teacher <span className="text-red-600">*</span>
-                </label>
-                <select
-                  value={selectedTeacherForForm}
-                  onChange={(e) => setSelectedTeacherForForm(e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500"
-                >
-                  <option value="">Select a teacher</option>
-                  {teachers.map((teacher) => (
-                    <option key={teacher._id} value={teacher._id}>
-                      {teacher.fullName}
-                    </option>
-                  ))}
-                </select>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Title</label>
+                <input
+                  type="text"
+                  value={localTitle}
+                  onChange={(e) => setLocalTitle(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                />
               </div>
-              <button
-                onClick={handleApproveForm}
-                className="w-full px-4 py-2 bg-green-600 text-white font-medium rounded hover:bg-green-700"
-              >
-                Approve & Assign
-              </button>
+
+              <div className="mb-4">
+                <label className="block text-sm font-medium text-gray-700 mb-2">Description</label>
+                <textarea
+                  value={localDescription}
+                  onChange={(e) => setLocalDescription(e.target.value)}
+                  rows={3}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+
+              <div className="mb-4">
+                <label className="block text-sm font-medium text-gray-700 mb-2">Allowed Batches</label>
+                <div className="flex gap-2 mb-3">
+                  <input
+                    type="text"
+                    value={localBatchInput}
+                    onChange={(e) => setLocalBatchInput(e.target.value)}
+                    onKeyPress={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleAddBatch(); } }}
+                    placeholder="e.g., 2024-A"
+                    className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                  />
+                  <button type="button" onClick={handleAddBatch} className="px-4 py-2 bg-blue-600 text-white rounded-lg">Add</button>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  {localAllowedBatches.map((b) => (
+                    <span key={b} className="bg-blue-50 text-blue-800 px-3 py-1 rounded-full flex items-center gap-2">
+                      {b}
+                      <button type="button" onClick={() => handleRemoveBatch(b)} className="text-blue-600">✕</button>
+                    </span>
+                  ))}
+                </div>
+              </div>
+
+              <div className="mb-4">
+                <label className="block text-sm font-medium text-gray-700 mb-2">Questions</label>
+                <div className="space-y-4">
+                  {localQuestions.length === 0 && <p className="text-sm text-gray-500">No questions yet.</p>}
+                  {localQuestions.map((q, idx) => (
+                    <div key={q.id} className="p-3 border border-gray-200 rounded-lg bg-gray-50">
+                      <div className="flex justify-between items-center mb-2">
+                        <div className="text-sm font-medium">Question {idx + 1}</div>
+                        <div className="flex gap-2">
+                          <button type="button" onClick={() => handleRemoveQuestion(q.id)} className="px-2 py-1 bg-red-500 text-white text-xs rounded">Remove</button>
+                        </div>
+                      </div>
+                      <input type="text" value={q.questionText} onChange={(e) => handleQuestionChange(q.id, 'questionText', e.target.value)} placeholder="Question text" className="w-full px-3 py-2 border border-gray-300 rounded mb-2" />
+                      <select value={q.type} onChange={(e) => handleQuestionChange(q.id, 'type', e.target.value)} className="w-full px-3 py-2 border border-gray-300 rounded mb-2">
+                        <option value="short">Short Answer</option>
+                        <option value="paragraph">Paragraph</option>
+                        <option value="mcq">Multiple Choice (Single)</option>
+                        <option value="checkbox">Multiple Choice (Multiple)</option>
+                        <option value="dropdown">Dropdown</option>
+                        <option value="star_rating">Star Rating</option>
+                        <option value="yes_no">Yes/No</option>
+                      </select>
+
+                      {['mcq', 'checkbox', 'dropdown'].includes(q.type) && (
+                        <div className="space-y-2">
+                          <div className="text-sm font-medium text-gray-700">Options</div>
+                          {q.options.map((opt, oi) => (
+                            <div key={oi} className="flex gap-2">
+                              <input value={opt} onChange={(e) => handleOptionChange(q.id, oi, e.target.value)} className="flex-1 px-3 py-2 border border-gray-300 rounded" />
+                              <button type="button" onClick={() => handleRemoveOption(q.id, oi)} className="px-2 py-1 bg-red-500 text-white rounded">Remove</button>
+                            </div>
+                          ))}
+                          <button type="button" onClick={() => handleAddOption(q.id)} className="px-3 py-1 bg-gray-500 text-white rounded">+ Add Option</button>
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                  <div>
+                    <button type="button" onClick={handleAddQuestion} className="px-4 py-2 bg-green-600 text-white rounded">+ Add Question</button>
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex gap-2">
+                <button onClick={handleSaveChanges} className="flex-1 px-4 py-2 bg-yellow-600 text-white rounded">Save Changes</button>
+                <div className="flex-1">
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Assign to Teacher (optional)</label>
+                  <select
+                    value={selectedTeacherForForm}
+                    onChange={(e) => setSelectedTeacherForForm(e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500"
+                  >
+                    <option value="">Select a teacher</option>
+                    {teachers.map((teacher) => (
+                      <option key={teacher._id} value={teacher._id}>
+                        {teacher.fullName}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              <div className="mt-3">
+                <button onClick={handleApproveForm} className="w-full px-4 py-2 bg-green-600 text-white font-medium rounded hover:bg-green-700">Approve & Assign</button>
+              </div>
             </div>
 
             {/* Reject Tab */}

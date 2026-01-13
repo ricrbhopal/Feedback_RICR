@@ -156,11 +156,12 @@ export const deleteForm = async (req, res, next) => {
       return res.status(404).json({ message: "Form not found" });
     }
 
-    if (
-      req.user.role !== "admin" &&
-      form.assignedTo.toString() !== req.user._id.toString()
-    ) {
-      return res.status(403).json({ message: "Not allowed" });
+    if (req.user.role !== "admin") {
+      const isAssignedToUser = form.assignedTo && form.assignedTo.toString() === req.user._id.toString();
+      const isCreator = form.createdBy && form.createdBy.toString() === req.user._id.toString();
+      if (!isAssignedToUser && !isCreator) {
+        return res.status(403).json({ message: "Not allowed" });
+      }
     }
 
     // Delete all responses associated with this form
@@ -182,11 +183,11 @@ export const toggleFormStatus = async (req, res, next) => {
     }
 
     // Admin can toggle any form, teacher can only toggle forms assigned to them
-    if (
-      req.user.role !== "admin" &&
-      form.assignedTo.toString() !== req.user._id.toString()
-    ) {
-      return res.status(403).json({ message: "Not allowed" });
+    if (req.user.role !== "admin") {
+      const isAssignedToUser = form.assignedTo && form.assignedTo.toString() === req.user._id.toString();
+      if (!isAssignedToUser) {
+        return res.status(403).json({ message: "Not allowed" });
+      }
     }
 
     form.isActive = !form.isActive;
@@ -219,14 +220,13 @@ export const updateForm = async (req, res, next) => {
       return res.status(404).json({ message: "Form not found" });
     }
 
-    // Teacher can update their own pending forms
-    // Admin can update any form
+    // Permissions:
+    // - Teacher can update any form they created (pending or approved)
+    //   After a teacher updates an approved form it should revert to pending and be inactive.
+    // - Admin can update any form.
     if (req.user.role === "teacher") {
       if (form.createdBy.toString() !== req.user._id.toString()) {
         return res.status(403).json({ message: "Not allowed" });
-      }
-      if (form.approvalStatus !== "pending") {
-        return res.status(403).json({ message: "Can only edit pending forms" });
       }
     } else if (req.user.role !== "admin") {
       return res.status(403).json({ message: "Not allowed" });
@@ -246,6 +246,16 @@ export const updateForm = async (req, res, next) => {
     // Admin can also change assignedTo and approval status
     if (req.user.role === "admin") {
       form.assignedTo = assignedTo || form.assignedTo;
+    }
+
+    // If a teacher updated their own form, mark it pending again and deactivate
+    if (req.user.role === "teacher") {
+      form.approvalStatus = "pending";
+      form.approvedBy = null;
+      form.approvedAt = null;
+      form.rejectionReason = null;
+      form.isActive = false;
+      form.activatedAt = null;
     }
 
     await form.save();
@@ -277,14 +287,14 @@ export const approveForm = async (req, res, next) => {
     }
 
     const { assignedTo } = req.body;
-    if (!assignedTo) {
-      return res.status(400).json({ message: "assignedTo is required" });
-    }
+
+    // If admin didn't provide an assignee, default to the form creator
+    const assignee = assignedTo || form.assignedTo || form.createdBy;
 
     form.approvalStatus = "approved";
     form.approvedBy = req.user._id;
     form.approvedAt = new Date();
-    form.assignedTo = assignedTo;
+    form.assignedTo = assignee;
 
     // Do NOT auto-activate on approval; admin will manually activate when ready
     form.isActive = false;
