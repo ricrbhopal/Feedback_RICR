@@ -7,10 +7,21 @@ export const createForm = async (req, res, next) => {
   try {
     const { title, description, questions, assignedTo, allowedBatches } = req.body;
 
-    if (!title || !questions || !Array.isArray(questions)) {
-      const error = new Error("Invalid form data");
-      error.statusCode = 400;
-      return next(error);
+    // Validate input with clearer error responses to help debugging
+    if (!title || typeof title !== 'string' || !title.trim()) {
+      return res.status(400).json({ message: 'title is required' });
+    }
+
+    if (!questions) {
+      return res.status(400).json({ message: 'questions is required' });
+    }
+
+    if (!Array.isArray(questions)) {
+      return res.status(400).json({ message: 'questions must be an array' });
+    }
+
+    if (questions.length === 0) {
+      return res.status(400).json({ message: 'questions array must have at least one question' });
     }
 
     // Admin form: assign to teachers immediately (approved)

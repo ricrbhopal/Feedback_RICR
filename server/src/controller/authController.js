@@ -11,7 +11,7 @@ export const Login = async (req, res, next) => {
       error.statusCode = 400;
       return next(error);
     }
-    console.log(email, password);
+    //console.log(email, password);
 
     const admin = await Admin.findOne({ email });
     if (!admin) {

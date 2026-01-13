@@ -284,16 +284,18 @@ const CreateForm = () => {
         allowedBatches,
       };
 
+      console.log('Submitting formData', formData);
       await api.post("/forms", formData);
-      
+
       // Clear localStorage after successful submission
       localStorage.removeItem('createFormDraft');
-      
+
       toast.success("Form created successfully!");
       navigate("/admin/dashboard");
     } catch (error) {
       console.error(error.response?.data || error.message);
-      toast.error("Error creating form");
+      const msg = error?.response?.data?.message || error?.message || 'Error creating form';
+      toast.error(msg);
     }
   };
 

@@ -2,9 +2,11 @@ import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import api from "../../config/api.jsx";
 import toast from "react-hot-toast";
+import { useAuth } from "../../context/AuthContext";
 
 const TeacherCreateForm = () => {
   const navigate = useNavigate();
+  const { user } = useAuth();
   const [formTitle, setFormTitle] = useState("");
   const [formDescription, setFormDescription] = useState("");
   const [questions, setQuestions] = useState([]);
@@ -39,7 +41,8 @@ const TeacherCreateForm = () => {
         formTitle,
         formDescription,
         questions,
-        allowedBatches
+        allowedBatches,
+        assignedTo: user?._id || null,
       };
       localStorage.setItem('teacherCreateFormDraft', JSON.stringify(formData));
     }
@@ -244,17 +247,20 @@ const TeacherCreateForm = () => {
         description: formDescription,
         questions,
         allowedBatches,
+        assignedTo: user?._id,
       };
 
+      console.log('Submitting teacher formData', formData);
       await api.post("/forms", formData);
-      
+
       localStorage.removeItem('teacherCreateFormDraft');
-      
+
       toast.success("Form submitted for approval!");
       navigate("/teacher/dashboard");
     } catch (error) {
       console.error(error.response?.data || error.message);
-      toast.error("Error creating form");
+      const msg = error?.response?.data?.message || error?.message || 'Error creating form';
+      toast.error(msg);
     }
   };
 
@@ -388,6 +394,17 @@ const TeacherCreateForm = () => {
                 rows="4"
                 className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               ></textarea>
+            </div>
+
+            {/* Assigned To (prefilled with teacher name, not editable) */}
+            <div className="mb-6">
+              <label className="block text-gray-700 font-semibold mb-2">Assigned To</label>
+              <input
+                type="text"
+                value={user?.fullName || ''}
+                disabled
+                className="w-full px-4 py-2 border border-gray-200 rounded-lg bg-gray-100 text-gray-700 cursor-not-allowed"
+              />
             </div>
 
             {/* Allowed Batches */}

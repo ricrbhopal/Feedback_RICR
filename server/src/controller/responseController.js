@@ -3,8 +3,8 @@ import Form from "../models/formModel.js";
 
 export const submitResponse = async (req, res) => {
   try {
-    console.log("REQ BODY:", req.body);
-    console.log("FORM ID:", req.params.formId);
+    //console.log("REQ BODY:", req.body);
+    //console.log("FORM ID:", req.params.formId);
 
     const { formId } = req.params;
     const { studentName, batch, answers } = req.body;
