@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import toast from 'react-hot-toast';
+import toast from "react-hot-toast";
 import QRCodeModal from "../../components/QRCodeModal.jsx";
 import api from "../../config/api.jsx";
 import { useEffect } from "react";
@@ -106,17 +106,24 @@ const Dashboard = () => {
       localQuestions.map((q) => {
         if (q.id !== questionId) return q;
         const updated = { ...q, [field]: value };
-        if (field === 'type') {
-          const needsOptions = ['mcq', 'checkbox', 'dropdown', 'yes_no'].includes(value);
-          const hadOptions = ['mcq', 'checkbox', 'dropdown', 'yes_no'].includes(q.type);
-          if (value === 'yes_no') {
-            updated.options = ['Yes', 'No'];
+        if (field === "type") {
+          const needsOptions = [
+            "mcq",
+            "checkbox",
+            "dropdown",
+            "yes_no",
+          ].includes(value);
+          const hadOptions = ["mcq", "checkbox", "dropdown", "yes_no"].includes(
+            q.type
+          );
+          if (value === "yes_no") {
+            updated.options = ["Yes", "No"];
           } else if (needsOptions && !hadOptions) {
-            updated.options = ['', ''];
+            updated.options = ["", ""];
           } else if (!needsOptions && hadOptions) {
             updated.options = [];
           }
-          if (value === 'star_rating' && !q.maxStars) updated.maxStars = 5;
+          if (value === "star_rating" && !q.maxStars) updated.maxStars = 5;
         }
         return updated;
       })
@@ -145,21 +152,31 @@ const Dashboard = () => {
     setLocalQuestions(
       localQuestions.map((q) =>
         q.id === questionId
-          ? { ...q, options: q.options.map((opt, i) => (i === optionIndex ? value : opt)) }
+          ? {
+              ...q,
+              options: q.options.map((opt, i) =>
+                i === optionIndex ? value : opt
+              ),
+            }
           : q
       )
     );
   };
 
   const handleAddBatch = () => {
-    if (localBatchInput.trim() && !localAllowedBatches.includes(localBatchInput.trim())) {
+    if (
+      localBatchInput.trim() &&
+      !localAllowedBatches.includes(localBatchInput.trim())
+    ) {
       setLocalAllowedBatches([...localAllowedBatches, localBatchInput.trim()]);
-      setLocalBatchInput('');
+      setLocalBatchInput("");
     }
   };
 
   const handleRemoveBatch = (batchToRemove) => {
-    setLocalAllowedBatches(localAllowedBatches.filter((b) => b !== batchToRemove));
+    setLocalAllowedBatches(
+      localAllowedBatches.filter((b) => b !== batchToRemove)
+    );
   };
 
   const buildUpdatePayload = () => ({
@@ -180,11 +197,11 @@ const Dashboard = () => {
     try {
       const payload = buildUpdatePayload();
       await api.put(`/forms/${selectedFormForApproval._id}`, payload);
-      toast.success('Form updated successfully');
+      toast.success("Form updated successfully");
       fetchForms();
     } catch (error) {
-      console.error('Error saving changes', error);
-      toast.error('Error saving changes');
+      console.error("Error saving changes", error);
+      toast.error("Error saving changes");
     }
   };
 
@@ -195,53 +212,62 @@ const Dashboard = () => {
       await api.put(`/forms/${selectedFormForApproval._id}`, payload);
       // Then approve
       const approvePayload = {};
-      if (selectedTeacherForForm) approvePayload.assignedTo = selectedTeacherForForm;
+      if (selectedTeacherForForm)
+        approvePayload.assignedTo = selectedTeacherForForm;
 
-      await api.patch(`/forms/${selectedFormForApproval._id}/approve`, approvePayload);
-      toast.success('Form approved successfully!');
+      await api.patch(
+        `/forms/${selectedFormForApproval._id}/approve`,
+        approvePayload
+      );
+      toast.success("Form approved successfully!");
       setApprovalModalOpen(false);
       setSelectedFormForApproval(null);
-      setSelectedTeacherForForm('');
+      setSelectedTeacherForForm("");
       fetchForms();
     } catch (error) {
-      console.error('Error approving form', error);
-      toast.error('Error approving form');
+      console.error("Error approving form", error);
+      toast.error("Error approving form");
     }
   };
 
   const handleDeleteForm = async (formId) => {
-    toast((t) => (
-      <div className="flex flex-col gap-3">
-        <span className="font-medium">Are you sure you want to delete this form?</span>
-        <div className="flex gap-2">
-          <button
-            onClick={async () => {
-              toast.dismiss(t.id);
-              try {
-                await api.delete(`/forms/${formId}`);
-                toast.success('Form deleted successfully');
-                fetchForms();
-                fetchStats();
-              } catch (error) {
-                console.error("Error deleting form", error);
-                toast.error('Error deleting form');
-              }
-            }}
-            className="px-4 py-2 bg-red-600 text-white text-sm font-medium rounded hover:bg-red-700"
-          >
-            Yes, Delete
-          </button>
-          <button
-            onClick={() => toast.dismiss(t.id)}
-            className="px-4 py-2 bg-gray-300 text-gray-800 text-sm font-medium rounded hover:bg-gray-400"
-          >
-            Cancel
-          </button>
+    toast(
+      (t) => (
+        <div className="flex flex-col gap-3">
+          <span className="font-medium">
+            Are you sure you want to delete this form?
+          </span>
+          <div className="flex gap-2">
+            <button
+              onClick={async () => {
+                toast.dismiss(t.id);
+                try {
+                  await api.delete(`/forms/${formId}`);
+                  toast.success("Form deleted successfully");
+                  fetchForms();
+                  fetchStats();
+                } catch (error) {
+                  console.error("Error deleting form", error);
+                  toast.error("Error deleting form");
+                }
+              }}
+              className="px-4 py-2 bg-red-600 text-white text-sm font-medium rounded hover:bg-red-700"
+            >
+              Yes, Delete
+            </button>
+            <button
+              onClick={() => toast.dismiss(t.id)}
+              className="px-4 py-2 bg-gray-300 text-gray-800 text-sm font-medium rounded hover:bg-gray-400"
+            >
+              Cancel
+            </button>
+          </div>
         </div>
-      </div>
-    ), {
-      duration: 5000,
-    });
+      ),
+      {
+        duration: 5000,
+      }
+    );
   };
 
   const handleCopyLink = (formId) => {
@@ -269,12 +295,10 @@ const Dashboard = () => {
     }
   };
 
-  
-
   const handleRejectForm = async () => {
     try {
       await api.patch(`/forms/${selectedFormForApproval._id}/reject`, {
-        reason: rejectionReason || "Rejected by admin"
+        reason: rejectionReason || "Rejected by admin",
       });
       toast.success("Form rejected successfully!");
       setApprovalModalOpen(false);
@@ -297,22 +321,39 @@ const Dashboard = () => {
   const getApprovalStatusBadge = (status) => {
     switch (status) {
       case "approved":
-        return <span className="px-3 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">Approved</span>;
+        return (
+          <span className="px-3 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
+            Approved
+          </span>
+        );
       case "pending":
-        return <span className="px-3 py-1 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">Pending Review</span>;
+        return (
+          <span className="px-3 py-1 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">
+            Pending Review
+          </span>
+        );
       case "rejected":
-        return <span className="px-3 py-1 rounded-full text-xs font-medium bg-red-100 text-red-800">Rejected</span>;
+        return (
+          <span className="px-3 py-1 rounded-full text-xs font-medium bg-red-100 text-red-800">
+            Rejected
+          </span>
+        );
       default:
         return null;
     }
   };
 
-  const pendingForms = forms.filter(form => form.approvalStatus === "pending");
-  const approvedForms = forms.filter(form => form.approvalStatus === "approved");
-  const rejectedForms = forms.filter(form => form.approvalStatus === "rejected");
+  const pendingForms = forms.filter(
+    (form) => form.approvalStatus === "pending"
+  );
+  const approvedForms = forms.filter(
+    (form) => form.approvalStatus === "approved"
+  );
+  const rejectedForms = forms.filter(
+    (form) => form.approvalStatus === "rejected"
+  );
 
   return (
-
     <div className="min-h-screen bg-gray-50 py-8 px-4">
       <div className="max-w-7xl mx-auto">
         {/* Page header */}
@@ -364,13 +405,13 @@ const Dashboard = () => {
         {/* Action buttons */}
         <div className="flex flex-col sm:flex-row gap-4 mb-8">
           <button
-            onClick={() => navigate('/admin/create-form')}
+            onClick={() => navigate("/admin/create-form")}
             className="px-6 py-3 bg-blue-700 text-white font-medium rounded hover:bg-blue-800 text-center"
           >
             Create New Form
           </button>
           <button
-            onClick={() => navigate('/admin/manage-teachers')}
+            onClick={() => navigate("/admin/manage-teachers")}
             className="px-6 py-3 bg-green-700 text-white font-medium rounded hover:bg-green-800 text-center"
           >
             Manage Teachers
@@ -410,9 +451,14 @@ const Dashboard = () => {
                         {form.title}
                       </td>
                       <td className="px-6 py-4 text-sm text-gray-600">
-                        {selectedFormForApproval && selectedFormForApproval._id === form._id
-                          ? (form.createdBy?.fullName || form.createdBy || 'Teacher')
-                          : (form.createdBy?.fullName || form.createdBy || 'Teacher')}
+                        {selectedFormForApproval &&
+                        selectedFormForApproval._id === form._id
+                          ? form.createdBy?.fullName ||
+                            form.createdBy ||
+                            "Teacher"
+                          : form.createdBy?.fullName ||
+                            form.createdBy ||
+                            "Teacher"}
                       </td>
                       <td className="px-6 py-4 text-sm text-gray-600">
                         {new Date(form.createdAt).toLocaleDateString()}
@@ -422,7 +468,9 @@ const Dashboard = () => {
                           <button
                             onClick={() => {
                               setSelectedFormForApproval(form);
-                              setSelectedTeacherForForm(form.assignedTo || form.createdBy || "");
+                              setSelectedTeacherForForm(
+                                form.assignedTo || form.createdBy || ""
+                              );
                               setApprovalModalOpen(true);
                             }}
                             className="px-3 py-1.5 bg-green-600 text-white text-xs font-medium rounded hover:bg-green-700 transition-colors"
@@ -432,7 +480,9 @@ const Dashboard = () => {
                           <button
                             onClick={() => {
                               setSelectedFormForApproval(form);
-                              setSelectedTeacherForForm(form.assignedTo || form.createdBy || "");
+                              setSelectedTeacherForForm(
+                                form.assignedTo || form.createdBy || ""
+                              );
                               setApprovalModalOpen(true);
                             }}
                             className="px-3 py-1.5 bg-red-600 text-white text-xs font-medium rounded hover:bg-red-700 transition-colors"
@@ -452,9 +502,7 @@ const Dashboard = () => {
         {/* All Forms table */}
         <div className="bg-white border border-gray-200 rounded-lg overflow-hidden">
           <div className="px-6 py-4 border-b border-gray-200">
-            <h2 className="text-xl font-semibold text-gray-900">
-              All Forms
-            </h2>
+            <h2 className="text-xl font-semibold text-gray-900">All Forms</h2>
           </div>
           <div className="overflow-x-auto">
             <table className="w-full">
@@ -538,10 +586,12 @@ const Dashboard = () => {
                         >
                           Delete
                         </button>
-                        
+
                         {/* Toggle Switch with Label */}
                         <div className="flex items-center gap-2 ml-2 pl-2 border-l border-gray-300">
-                          <span className="text-xs text-gray-600 font-medium">Status:</span>
+                          <span className="text-xs text-gray-600 font-medium">
+                            Status:
+                          </span>
                           <button
                             onClick={() => handleToggleStatus(form._id)}
                             className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 ${
@@ -549,11 +599,17 @@ const Dashboard = () => {
                                 ? "bg-green-600 focus:ring-green-500"
                                 : "bg-gray-300 focus:ring-gray-400"
                             }`}
-                            title={form.isActive ? "Active - Click to deactivate" : "Inactive - Click to activate"}
+                            title={
+                              form.isActive
+                                ? "Active - Click to deactivate"
+                                : "Inactive - Click to activate"
+                            }
                           >
                             <span
                               className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
-                                form.isActive ? "translate-x-6" : "translate-x-1"
+                                form.isActive
+                                  ? "translate-x-6"
+                                  : "translate-x-1"
                               }`}
                             />
                           </button>
@@ -570,8 +626,8 @@ const Dashboard = () => {
 
       {/* Approval Modal */}
       {approvalModalOpen && selectedFormForApproval && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-lg shadow-xl p-8 max-w-md w-full">
+        <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg shadow-xl p-8 max-w-8xl h-[90vh] w-full overflow-y-auto">
             <h3 className="text-xl font-bold text-gray-900 mb-4">
               Review Form: {selectedFormForApproval.title}
             </h3>
@@ -584,10 +640,14 @@ const Dashboard = () => {
 
             {/* Inline Edit + Approve */}
             <div className="mb-6 p-4 border-2 border-blue-200 rounded-lg bg-white">
-              <h4 className="font-semibold text-blue-900 mb-4">Edit Form (Inline)</h4>
+              <h4 className="font-semibold text-blue-900 mb-4">
+                Edit Form (Inline)
+              </h4>
 
               <div className="mb-4">
-                <label className="block text-sm font-medium text-gray-700 mb-2">Title</label>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Title
+                </label>
                 <input
                   type="text"
                   value={localTitle}
@@ -597,7 +657,9 @@ const Dashboard = () => {
               </div>
 
               <div className="mb-4">
-                <label className="block text-sm font-medium text-gray-700 mb-2">Description</label>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Description
+                </label>
                 <textarea
                   value={localDescription}
                   onChange={(e) => setLocalDescription(e.target.value)}
@@ -607,75 +669,165 @@ const Dashboard = () => {
               </div>
 
               <div className="mb-4">
-                <label className="block text-sm font-medium text-gray-700 mb-2">Allowed Batches</label>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Allowed Batches
+                </label>
                 <div className="flex gap-2 mb-3">
                   <input
                     type="text"
                     value={localBatchInput}
                     onChange={(e) => setLocalBatchInput(e.target.value)}
-                    onKeyPress={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleAddBatch(); } }}
+                    onKeyPress={(e) => {
+                      if (e.key === "Enter") {
+                        e.preventDefault();
+                        handleAddBatch();
+                      }
+                    }}
                     placeholder="e.g., 2024-A"
                     className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
                   />
-                  <button type="button" onClick={handleAddBatch} className="px-4 py-2 bg-blue-600 text-white rounded-lg">Add</button>
+                  <button
+                    type="button"
+                    onClick={handleAddBatch}
+                    className="px-4 py-2 bg-blue-600 text-white rounded-lg"
+                  >
+                    Add
+                  </button>
                 </div>
                 <div className="flex flex-wrap gap-2">
                   {localAllowedBatches.map((b) => (
-                    <span key={b} className="bg-blue-50 text-blue-800 px-3 py-1 rounded-full flex items-center gap-2">
+                    <span
+                      key={b}
+                      className="bg-blue-50 text-blue-800 px-3 py-1 rounded-full flex items-center gap-2"
+                    >
                       {b}
-                      <button type="button" onClick={() => handleRemoveBatch(b)} className="text-blue-600">✕</button>
+                      <button
+                        type="button"
+                        onClick={() => handleRemoveBatch(b)}
+                        className="text-blue-600"
+                      >
+                        ✕
+                      </button>
                     </span>
                   ))}
                 </div>
               </div>
 
               <div className="mb-4">
-                <label className="block text-sm font-medium text-gray-700 mb-2">Questions</label>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Questions
+                </label>
                 <div className="space-y-4">
-                  {localQuestions.length === 0 && <p className="text-sm text-gray-500">No questions yet.</p>}
+                  {localQuestions.length === 0 && (
+                    <p className="text-sm text-gray-500">No questions yet.</p>
+                  )}
                   {localQuestions.map((q, idx) => (
-                    <div key={q.id} className="p-3 border border-gray-200 rounded-lg bg-gray-50">
+                    <div
+                      key={q.id}
+                      className="p-3 border border-gray-200 rounded-lg bg-gray-50"
+                    >
                       <div className="flex justify-between items-center mb-2">
-                        <div className="text-sm font-medium">Question {idx + 1}</div>
+                        <div className="text-sm font-medium">
+                          Question {idx + 1}
+                        </div>
                         <div className="flex gap-2">
-                          <button type="button" onClick={() => handleRemoveQuestion(q.id)} className="px-2 py-1 bg-red-500 text-white text-xs rounded">Remove</button>
+                          <button
+                            type="button"
+                            onClick={() => handleRemoveQuestion(q.id)}
+                            className="px-2 py-1 bg-red-500 text-white text-xs rounded"
+                          >
+                            Remove
+                          </button>
                         </div>
                       </div>
-                      <input type="text" value={q.questionText} onChange={(e) => handleQuestionChange(q.id, 'questionText', e.target.value)} placeholder="Question text" className="w-full px-3 py-2 border border-gray-300 rounded mb-2" />
-                      <select value={q.type} onChange={(e) => handleQuestionChange(q.id, 'type', e.target.value)} className="w-full px-3 py-2 border border-gray-300 rounded mb-2">
+                      <input
+                        type="text"
+                        value={q.questionText}
+                        onChange={(e) =>
+                          handleQuestionChange(
+                            q.id,
+                            "questionText",
+                            e.target.value
+                          )
+                        }
+                        placeholder="Question text"
+                        className="w-full px-3 py-2 border border-gray-300 rounded mb-2"
+                      />
+                      <select
+                        value={q.type}
+                        onChange={(e) =>
+                          handleQuestionChange(q.id, "type", e.target.value)
+                        }
+                        className="w-full px-3 py-2 border border-gray-300 rounded mb-2"
+                      >
                         <option value="short">Short Answer</option>
                         <option value="paragraph">Paragraph</option>
                         <option value="mcq">Multiple Choice (Single)</option>
-                        <option value="checkbox">Multiple Choice (Multiple)</option>
+                        <option value="checkbox">
+                          Multiple Choice (Multiple)
+                        </option>
                         <option value="dropdown">Dropdown</option>
                         <option value="star_rating">Star Rating</option>
                         <option value="yes_no">Yes/No</option>
                       </select>
 
-                      {['mcq', 'checkbox', 'dropdown'].includes(q.type) && (
+                      {["mcq", "checkbox", "dropdown"].includes(q.type) && (
                         <div className="space-y-2">
-                          <div className="text-sm font-medium text-gray-700">Options</div>
+                          <div className="text-sm font-medium text-gray-700">
+                            Options
+                          </div>
                           {q.options.map((opt, oi) => (
                             <div key={oi} className="flex gap-2">
-                              <input value={opt} onChange={(e) => handleOptionChange(q.id, oi, e.target.value)} className="flex-1 px-3 py-2 border border-gray-300 rounded" />
-                              <button type="button" onClick={() => handleRemoveOption(q.id, oi)} className="px-2 py-1 bg-red-500 text-white rounded">Remove</button>
+                              <input
+                                value={opt}
+                                onChange={(e) =>
+                                  handleOptionChange(q.id, oi, e.target.value)
+                                }
+                                className="flex-1 px-3 py-2 border border-gray-300 rounded"
+                              />
+                              <button
+                                type="button"
+                                onClick={() => handleRemoveOption(q.id, oi)}
+                                className="px-2 py-1 bg-red-500 text-white rounded"
+                              >
+                                Remove
+                              </button>
                             </div>
                           ))}
-                          <button type="button" onClick={() => handleAddOption(q.id)} className="px-3 py-1 bg-gray-500 text-white rounded">+ Add Option</button>
+                          <button
+                            type="button"
+                            onClick={() => handleAddOption(q.id)}
+                            className="px-3 py-1 bg-gray-500 text-white rounded"
+                          >
+                            + Add Option
+                          </button>
                         </div>
                       )}
                     </div>
                   ))}
                   <div>
-                    <button type="button" onClick={handleAddQuestion} className="px-4 py-2 bg-green-600 text-white rounded">+ Add Question</button>
+                    <button
+                      type="button"
+                      onClick={handleAddQuestion}
+                      className="px-4 py-2 bg-green-600 text-white rounded"
+                    >
+                      + Add Question
+                    </button>
                   </div>
                 </div>
               </div>
 
               <div className="flex gap-2">
-                <button onClick={handleSaveChanges} className="flex-1 px-4 py-2 bg-yellow-600 text-white rounded">Save Changes</button>
+                <button
+                  onClick={handleSaveChanges}
+                  className="flex-1 px-4 py-2 bg-yellow-600 text-white rounded"
+                >
+                  Save Changes
+                </button>
                 <div className="flex-1">
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Assign to Teacher (optional)</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Assign to Teacher (optional)
+                  </label>
                   <select
                     value={selectedTeacherForForm}
                     onChange={(e) => setSelectedTeacherForForm(e.target.value)}
@@ -692,7 +844,12 @@ const Dashboard = () => {
               </div>
 
               <div className="mt-3">
-                <button onClick={handleApproveForm} className="w-full px-4 py-2 bg-green-600 text-white font-medium rounded hover:bg-green-700">Approve & Assign</button>
+                <button
+                  onClick={handleApproveForm}
+                  className="w-full px-4 py-2 bg-green-600 text-white font-medium rounded hover:bg-green-700"
+                >
+                  Approve & Assign
+                </button>
               </div>
             </div>
 
