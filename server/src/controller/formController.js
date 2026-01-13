@@ -46,9 +46,13 @@ export const createForm = async (req, res, next) => {
       formData.approvalStatus = "approved";
       formData.approvedBy = req.user._id;
       formData.approvedAt = new Date();
+      // Admin-created forms are active by default
+      formData.isActive = true;
     } else {
       // Teacher creating form (pending approval)
       formData.approvalStatus = "pending";
+      // Do not make teacher-submitted forms active until approved
+      formData.isActive = false;
     }
 
     const form = await Form.create(formData);
@@ -282,6 +286,10 @@ export const approveForm = async (req, res, next) => {
     form.approvedAt = new Date();
     form.assignedTo = assignedTo;
 
+    // Activate the form when approved
+    form.isActive = true;
+    form.activatedAt = new Date();
+
     await form.save();
 
     res.json({
@@ -314,6 +322,9 @@ export const rejectForm = async (req, res, next) => {
 
     form.approvalStatus = "rejected";
     form.rejectionReason = reason || "Rejected by admin";
+    // Ensure rejected forms are not active
+    form.isActive = false;
+    form.activatedAt = null;
 
     await form.save();
 

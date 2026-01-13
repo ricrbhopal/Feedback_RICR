@@ -63,13 +63,31 @@ const ViewForm = () => {
 
         {/* Form header */}
         <div className="bg-white border border-gray-200 rounded-lg shadow-sm p-6 mb-6">
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">{form.title}</h1>
-          {form.description && (
-            <p className="text-lg text-gray-600 mb-4">{form.description}</p>
-          )}
-          <div className="flex gap-4 text-sm text-gray-600">
-            <span>Status: <span className={`font-medium ${form.status === 'Active' ? 'text-green-600' : 'text-gray-600'}`}>{form.status}</span></span>
-            <span>Created: {new Date(form.createdAt).toLocaleDateString()}</span>
+          <div className="flex items-start justify-between gap-4">
+            <div>
+              <h1 className="text-3xl font-bold text-gray-900 mb-2">{form.title}</h1>
+              {form.description && (
+                <p className="text-lg text-gray-600 mb-4">{form.description}</p>
+              )}
+              <div className="flex gap-4 text-sm text-gray-600">
+                <span>Status: <span className={`font-medium ${form.status === 'Active' ? 'text-green-600' : 'text-gray-600'}`}>{form.status}</span></span>
+                <span>Created: {new Date(form.createdAt).toLocaleDateString()}</span>
+              </div>
+            </div>
+
+            {/* Approval badge */}
+            <div className="text-right">
+              {form.approvalStatus === 'approved' ? (
+                <span className="inline-block px-3 py-1 bg-green-100 text-green-800 text-sm font-medium rounded-full">Approved</span>
+              ) : form.approvalStatus === 'pending' ? (
+                <span className="inline-block px-3 py-1 bg-yellow-100 text-yellow-800 text-sm font-medium rounded-full">Pending Approval</span>
+              ) : (
+                <span className="inline-block px-3 py-1 bg-red-100 text-red-800 text-sm font-medium rounded-full">Rejected</span>
+              )}
+              {form.rejectionReason && (
+                <div className="mt-2 text-xs text-red-600">Reason: {form.rejectionReason}</div>
+              )}
+            </div>
           </div>
         </div>
 
