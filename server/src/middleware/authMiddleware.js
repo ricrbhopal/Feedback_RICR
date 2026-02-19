@@ -10,7 +10,7 @@ export const Protect = async (req, res, next) => {
       return next(error);
     }
 
-   // console.log("token ", token);
+    // console.log("token ", token);
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
     const currentUser = await User.findById(decoded.id);
 
@@ -19,9 +19,31 @@ export const Protect = async (req, res, next) => {
       error.statusCode = 401;
       return next(error);
     }
- 
+
     req.user = currentUser;
     next();
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const ProtectUser = async (req, res, next) => {
+  try {
+    const token = req.cookies.secret;
+
+    if (token) {
+      const decoded = jwt.verify(token, process.env.JWT_SECRET);
+      const currentUser = await User.findById(decoded.id);
+
+      if (!currentUser) {
+        const error = new Error("User not found");
+        error.statusCode = 401;
+        return next(error);
+      }
+
+      req.user = currentUser;
+    }
+ next();
   } catch (error) {
     next(error);
   }

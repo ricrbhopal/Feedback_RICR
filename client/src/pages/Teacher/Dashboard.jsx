@@ -56,7 +56,7 @@ const TeacherDashboard = () => {
   const createdForms = allForms.filter(form => form.createdBy === user?._id);
 
   const handleCopyLink = (formId) => {
-    const link = `${import.meta.env.VITE_FRONTEND_URL}/responses/${formId}`;
+    const link = `${import.meta.env.VITE_FRONTEND_URL}/form/${formId}`;
     navigator.clipboard
       .writeText(link)
       .then(() => {
@@ -118,7 +118,7 @@ const TeacherDashboard = () => {
   };
 
   const handleShowQR = (formId, formTitle) => {
-    const link = `${import.meta.env.VITE_FRONTEND_URL}/responses/${formId}`;
+    const link = `${import.meta.env.VITE_FRONTEND_URL}/forms/${formId}`;
     setSelectedFormLink(link);
     setSelectedFormTitle(formTitle);
     setQrModalOpen(true);
