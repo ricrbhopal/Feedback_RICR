@@ -118,7 +118,7 @@ const TeacherDashboard = () => {
   };
 
   const handleShowQR = (formId, formTitle) => {
-    const link = `${import.meta.env.VITE_FRONTEND_URL}/forms/${formId}`;
+    const link = `${import.meta.env.VITE_FRONTEND_URL}/form/${formId}`;
     setSelectedFormLink(link);
     setSelectedFormTitle(formTitle);
     setQrModalOpen(true);

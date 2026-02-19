@@ -8,14 +8,14 @@ import { updateForm } from "../controller/formController.js";
 import { approveForm } from "../controller/formController.js";
 import { rejectForm } from "../controller/formController.js";
 
-import { Protect } from "../middleware/authMiddleware.js";
+import { Protect, ProtectUser } from "../middleware/authMiddleware.js";
 
 const router = express.Router();
 
 // POST /forms
 router.post("/", Protect, createForm);
 router.get("/", Protect, getAllForms);
-router.get("/:id", Protect, getFormById);
+router.get("/:id", ProtectUser, getFormById);
 router.put("/:id", Protect, updateForm);
 router.delete("/:id", Protect, deleteForm);
 router.patch("/:id/toggle-status", Protect, toggleFormStatus);
