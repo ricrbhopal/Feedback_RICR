@@ -3,7 +3,7 @@ import { useParams, Link } from 'react-router-dom';
 import api from '../../config/api';
 import toast from 'react-hot-toast';
 import { Pie, Bar } from 'react-chartjs-2';
-import ExcelJS from 'exceljs';
+import * as XLSX from 'xlsx';
 import {
   Chart as ChartJS,
   ArcElement,
@@ -30,8 +30,9 @@ const ViewResponses = () => {
   const { formId } = useParams();
   const [responses, setResponses] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState('summary'); // 'summary' or 'individual'
+  const [activeTab, setActiveTab] = useState('summary'); // 'summary', 'individual', or 'lower-feedback'
   const [selectedStudent, setSelectedStudent] = useState('');
+  const [selectedLowerFeedbackStudent, setSelectedLowerFeedbackStudent] = useState('');
 
   const fetchResponses = async () => {
     try {
@@ -51,15 +52,11 @@ const ViewResponses = () => {
 
   const exportToExcel = async () => {
     if (responses.length === 0) {
-      alert('No data to export');
+      toast.error('No data to export. No responses to download.');
       return;
     }
 
     try {
-      // Create workbook and worksheet
-      const workbook = new ExcelJS.Workbook();
-      const worksheet = workbook.addWorksheet('Form Responses');
-
       // Prepare headers
       const headers = ['Student Name', 'Batch', 'Submission Date', 'Submission Time'];
       
@@ -67,21 +64,10 @@ const ViewResponses = () => {
         responses[0].form.questions.forEach(q => {
           headers.push(q.questionText);
         });
-      } else {
-        const maxAnswers = Math.max(...responses.map(r => r.answers.length));
-        for (let i = 1; i <= maxAnswers; i++) {
-          headers.push(`Question ${i}`);
-        }
       }
 
-      // Add header row with styling
-      const headerRow = worksheet.addRow(headers);
-      headerRow.font = { bold: true, color: { argb: 'FFFFFFFF' } };
-      headerRow.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF366092' } };
-      headerRow.alignment = { horizontal: 'center', vertical: 'center', wrapText: true };
-
-      // Add data rows
-      responses.forEach(response => {
+      // Prepare data rows
+      const dataRows = responses.map(response => {
         const row = [
           response.studentName,
           response.batch || 'N/A',
@@ -96,31 +82,24 @@ const ViewResponses = () => {
           row.push(answer);
         });
 
-        worksheet.addRow(row);
+        return row;
       });
 
-      // Set column widths and wrap text
-      worksheet.columns.forEach(column => {
-        column.width = 20;
-        column.alignment = { wrapText: true, vertical: 'top' };
-      });
+      // Combine headers and data
+      const sheetData = [headers, ...dataRows];
 
-      // Set row heights
-      worksheet.rows.forEach(row => {
-        row.height = 30;
-      });
+      // Create workbook
+      const worksheet = XLSX.utils.aoa_to_sheet(sheetData);
+      const workbook = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(workbook, worksheet, 'Form Responses');
 
-      // Generate Excel file and download
-      const buffer = await workbook.xlsx.writeBuffer();
-      const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
-      const url = URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.href = url;
-      link.download = `form_responses_${formId}_${new Date().toISOString().split('T')[0]}.xlsx`;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      URL.revokeObjectURL(url);
+      // Set column widths
+      const columnWidths = headers.map(() => 20);
+      worksheet['!cols'] = columnWidths.map(width => ({ wch: width }));
+
+      // Generate file and download
+      const fileName = `form_responses_${formId}_${new Date().toISOString().split('T')[0]}.xlsx`;
+      XLSX.writeFile(workbook, fileName);
       
       toast.success('Excel file downloaded successfully!');
     } catch (error) {
@@ -468,6 +447,219 @@ const ViewResponses = () => {
     );
   };
 
+  // Extract lower feedbacks: Students who answered "No" to Yes/No or rated < 8 stars
+  const extractLowerFeedbacks = () => {
+    if (responses.length === 0 || !responses[0].form) {
+      return [];
+    }
+
+    const questions = responses[0].form.questions;
+    const lowerFeedbackList = [];
+
+    responses.forEach(response => {
+      response.answers.forEach(answerObj => {
+        const question = questions.find(q => q._id.toString() === answerObj.questionId.toString());
+        
+        if (!question) return;
+
+        let isLowerFeedback = false;
+
+        // Check for "No" in Yes/No questions
+        if (question.type === 'yes_no' && answerObj.answer === 'No') {
+          isLowerFeedback = true;
+        }
+
+        // Check for rating < 8 in Star Rating questions
+        if (question.type === 'star_rating') {
+          const rating = parseInt(answerObj.answer);
+          if (rating < 8) {
+            isLowerFeedback = true;
+          }
+        }
+
+        if (isLowerFeedback) {
+          lowerFeedbackList.push({
+            studentName: response.studentName,
+            batch: response.batch,
+            submittedAt: response.submittedAt,
+            questionText: question.questionText,
+            questionType: question.type,
+            answer: answerObj.answer,
+            questionId: question._id
+          });
+        }
+      });
+    });
+
+    return lowerFeedbackList;
+  };
+
+  const renderLowerFeedbackView = () => {
+    const lowerFeedbacks = extractLowerFeedbacks();
+
+    if (lowerFeedbacks.length === 0) {
+      return (
+        <div className="bg-white border border-gray-200 rounded-lg shadow-sm p-8 text-center">
+          <div className="text-6xl mb-4">✨</div>
+          <p className="text-gray-600 text-lg font-medium">Great! No lower feedbacks found.</p>
+          <p className="text-gray-500 mt-2">All students have provided positive ratings and responses.</p>
+        </div>
+      );
+    }
+
+    // Get unique students with lower feedbacks
+    const studentsWithLowerFeedback = [...new Set(lowerFeedbacks.map(f => f.studentName))];
+    
+    // Set first student as selected if not already selected
+    if (!selectedLowerFeedbackStudent && studentsWithLowerFeedback.length > 0) {
+      setSelectedLowerFeedbackStudent(studentsWithLowerFeedback[0]);
+    }
+
+    // Get feedbacks for selected student
+    const selectedStudentFeedback = selectedLowerFeedbackStudent 
+      ? lowerFeedbacks.filter(f => f.studentName === selectedLowerFeedbackStudent)
+      : [];
+
+    // Get selected student's full response data
+    const selectedStudentResponse = selectedLowerFeedbackStudent
+      ? responses.find(r => r.studentName === selectedLowerFeedbackStudent)
+      : null;
+
+    return (
+      <div className="space-y-4">
+        {/* Alert Summary */}
+        <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-6">
+          <p className="text-red-900 font-semibold">
+            ⚠️ {lowerFeedbacks.length} lower feedback(s) from {studentsWithLowerFeedback.length} student(s)
+          </p>
+          <p className="text-red-800 text-sm mt-1">
+            Students who answered "No" to Yes/No questions or rated less than 8 stars
+          </p>
+        </div>
+
+        {/* Student Tabs */}
+        <div className="bg-white border border-gray-200 rounded-lg shadow-sm">
+          <div className="overflow-x-auto">
+            <div className="flex border-b border-gray-200 min-w-full">
+              {studentsWithLowerFeedback.map((studentName) => {
+                const studentFeedbackCount = lowerFeedbacks.filter(f => f.studentName === studentName).length;
+                return (
+                  <button
+                    key={studentName}
+                    onClick={() => setSelectedLowerFeedbackStudent(studentName)}
+                    className={`px-6 py-4 text-sm font-medium transition-colors whitespace-nowrap ${
+                      selectedLowerFeedbackStudent === studentName
+                        ? 'text-red-700 border-b-2 border-red-700 bg-red-50'
+                        : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
+                    }`}
+                  >
+                    👤 {studentName}
+                    <span className="ml-2 inline-block px-2 py-1 bg-red-100 text-red-800 rounded-full text-xs font-semibold">
+                      {studentFeedbackCount}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Student's Lower Feedbacks Content */}
+          {selectedStudentResponse && selectedStudentFeedback.length > 0 && (
+            <div className="p-6 space-y-6">
+              {/* Student Info */}
+              <div className="bg-gray-50 rounded-lg p-4 border border-gray-200">
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <p className="text-xs font-semibold text-gray-600 uppercase">Student Name</p>
+                    <p className="text-lg font-bold text-gray-900">{selectedStudentResponse.studentName}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs font-semibold text-gray-600 uppercase">Batch</p>
+                    <p className="text-lg font-bold text-gray-900">{selectedStudentResponse.batch}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs font-semibold text-gray-600 uppercase">Submission Date</p>
+                    <p className="text-lg font-semibold text-gray-900">{new Date(selectedStudentResponse.submittedAt).toLocaleDateString()}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs font-semibold text-gray-600 uppercase">Submission Time</p>
+                    <p className="text-lg font-semibold text-gray-900">{new Date(selectedStudentResponse.submittedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Lower Feedback Items */}
+              <div className="space-y-4">
+                <h3 className="text-lg font-semibold text-gray-900">Lower Feedback Details</h3>
+                {selectedStudentFeedback.map((feedback, idx) => (
+                  <div key={idx} className="border border-yellow-200 rounded-lg p-4 bg-yellow-50 hover:shadow-md transition-shadow">
+                    <div className="flex items-start justify-between mb-3">
+                      <div className="flex-1">
+                        <p className="text-sm font-medium text-gray-600">Question {idx + 1}</p>
+                        <p className="text-base font-semibold text-gray-900 mt-1">{feedback.questionText}</p>
+                      </div>
+                      <span className="inline-block px-3 py-1 bg-blue-100 text-blue-800 rounded text-xs font-semibold ml-4 whitespace-nowrap">
+                        {feedback.questionType === 'yes_no' ? 'Yes/No' : 'Star Rating'}
+                      </span>
+                    </div>
+                    <div className="mt-3 p-3 bg-white rounded border border-yellow-100">
+                      {feedback.questionType === 'yes_no' && (
+                        <div className="flex items-center gap-3">
+                          <span className="text-lg">📍</span>
+                          <span className="inline-block px-4 py-2 bg-red-100 text-red-800 rounded font-bold text-base">
+                            {feedback.answer}
+                          </span>
+                        </div>
+                      )}
+                      {feedback.questionType === 'star_rating' && (
+                        <div className="flex items-center gap-3">
+                          <span className="text-lg">⭐</span>
+                          <span className="inline-block px-4 py-2 bg-yellow-100 text-yellow-800 rounded font-bold text-base">
+                            {feedback.answer} out of 10
+                          </span>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              {/* Comments/Notes Section */}
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                <h3 className="text-lg font-semibold text-gray-900 mb-3">📝 Student's Comments</h3>
+                <div className="space-y-3">
+                  {selectedStudentResponse.answers
+                    .filter(ans => {
+                      const question = responses[0]?.form?.questions?.find(q => q._id.toString() === ans.questionId.toString());
+                      return question && (question.type === 'paragraph' || question.type === 'long');
+                    })
+                    .length > 0 ? (
+                    selectedStudentResponse.answers
+                      .filter(ans => {
+                        const question = responses[0]?.form?.questions?.find(q => q._id.toString() === ans.questionId.toString());
+                        return question && (question.type === 'paragraph' || question.type === 'long');
+                      })
+                      .map((ans, idx) => {
+                        const question = responses[0]?.form?.questions?.find(q => q._id.toString() === ans.questionId.toString());
+                        return (
+                          <div key={idx} className="p-3 bg-white border border-blue-100 rounded">
+                            <p className="text-sm font-semibold text-gray-700 mb-2">{question.questionText}</p>
+                            <p className="text-gray-800 whitespace-pre-wrap">{ans.answer}</p>
+                          </div>
+                        );
+                      })
+                  ) : (
+                    <p className="text-gray-600 italic">No comments provided by this student.</p>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center px-4">
@@ -543,6 +735,16 @@ const ViewResponses = () => {
               >
                 👤 Individual Responses
               </button>
+              <button
+                onClick={() => setActiveTab('lower-feedback')}
+                className={`flex-1 px-6 py-4 text-sm font-medium transition-colors ${
+                  activeTab === 'lower-feedback'
+                    ? 'text-red-700 border-b-2 border-red-700 bg-red-50'
+                    : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
+                }`}
+              >
+                ⚠️ Lower Feedbacks
+              </button>
             </div>
           </div>
         )}
@@ -560,6 +762,7 @@ const ViewResponses = () => {
           <>
             {activeTab === 'summary' && renderSummaryView()}
             {activeTab === 'individual' && renderIndividualView()}
+            {activeTab === 'lower-feedback' && renderLowerFeedbackView()}
           </>
         )}
       </div>

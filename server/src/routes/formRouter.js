@@ -15,7 +15,7 @@ const router = express.Router();
 // POST /forms
 router.post("/", Protect, createForm);
 router.get("/", Protect, getAllForms);
-router.get("/:id", getFormById);
+router.get("/:id", Protect, getFormById);
 router.put("/:id", Protect, updateForm);
 router.delete("/:id", Protect, deleteForm);
 router.patch("/:id/toggle-status", Protect, toggleFormStatus);
