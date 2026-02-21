@@ -472,7 +472,7 @@ const ViewResponses = () => {
                 {data.questionText}
               </h3>
               {data.type === 'bar' && (
-                <div className="px-3 py-2 flex gap-4">
+                <div className="px-3 py-2 flex gap-4 items-center">
                   <p className="text-xs font-semibold text-gray-600">AVG</p>
                   <p className="text-xl font-bold text-blue-600">{data.averageRating.toFixed(1)}</p>
                 </div>
