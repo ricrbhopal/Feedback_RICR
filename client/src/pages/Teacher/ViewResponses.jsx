@@ -128,6 +128,25 @@ const ViewResponses = () => {
     }
   };
 
+  // Calculate average star rating
+  const calculateAverageRating = (questionId) => {
+    let totalRating = 0;
+    let ratingCount = 0;
+
+    responses.forEach(response => {
+      const answer = response.answers.find(a => a.questionId.toString() === questionId.toString());
+      if (answer && answer.answer) {
+        const rating = parseInt(answer.answer);
+        if (rating) {
+          totalRating += rating;
+          ratingCount += 1;
+        }
+      }
+    });
+
+    return ratingCount > 0 ? totalRating / ratingCount : 0;
+  };
+
   // Process data for visualizations
   const processDataForCharts = () => {
     if (responses.length === 0 || !responses[0].form) return {};
@@ -174,9 +193,15 @@ const ViewResponses = () => {
           }
         });
         
+        const avgRating = calculateAverageRating(questionId);
+        const percentage = maxStars > 0 ? (avgRating / maxStars) * 100 : 0;
+        
         chartData[questionId] = {
           type: 'bar',
           questionText: question.questionText,
+          maxStars: maxStars,
+          averageRating: avgRating,
+          percentage: percentage,
           data: Object.entries(starCounts).map(([stars, count]) => ({ 
             stars: `${stars} Star${stars > 1 ? 's' : ''}`, 
             count 
@@ -478,17 +503,44 @@ const ViewResponses = () => {
             )}
 
             {data.type === 'bar' && (
-              <div className="w-full" style={{ minHeight: 300 }}>
-                <ResponsiveContainer width="100%" height={300}>
-                  <BarChart data={data.data}>
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="stars" />
-                  <YAxis />
-                  <Tooltip />
-                  <Legend />
-                  <Bar dataKey="count" fill="#3B82F6" name="Number of Responses" />
-                </BarChart>
-              </ResponsiveContainer>
+              <div className="space-y-6">
+                {/* Average Rating Display */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="bg-gradient-to-br from-blue-50 to-indigo-50 border border-blue-200 rounded-lg p-6">
+                    <p className="text-sm font-semibold text-gray-600 uppercase mb-2">Average Star Rating</p>
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-4xl font-bold text-blue-600">{data.averageRating.toFixed(2)}</p>
+                        <p className="text-sm text-gray-600 mt-1">out of {data.maxStars} stars</p>
+                      </div>
+                      <div className="text-5xl">⭐</div>
+                    </div>
+                  </div>
+                  <div className="bg-gradient-to-br from-green-50 to-emerald-50 border border-green-200 rounded-lg p-6">
+                    <p className="text-sm font-semibold text-gray-600 uppercase mb-2">Performance Percentage</p>
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-4xl font-bold text-green-600">{data.percentage.toFixed(1)}%</p>
+                        <p className="text-sm text-gray-600 mt-1">of maximum rating</p>
+                      </div>
+                      <div className="text-5xl">📊</div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Bar Chart */}
+                <div className="w-full" style={{ minHeight: 300 }}>
+                  <ResponsiveContainer width="100%" height={300}>
+                    <BarChart data={data.data}>
+                      <CartesianGrid strokeDasharray="3 3" />
+                      <XAxis dataKey="stars" />
+                      <YAxis />
+                      <Tooltip />
+                      <Legend />
+                      <Bar dataKey="count" fill="#3B82F6" name="Number of Responses" />
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
               </div>
             )}
 
