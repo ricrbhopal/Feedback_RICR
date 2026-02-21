@@ -171,6 +171,7 @@ const ViewResponses = () => {
         chartData[questionId] = {
           type: 'pie',
           questionText: question.questionText,
+          questionType: question.type,
           data: Object.entries(optionCounts).map(([name, value]) => ({ name, value }))
         };
       } else if (question.type === 'star_rating') {
@@ -230,6 +231,13 @@ const ViewResponses = () => {
   };
 
   const COLORS = ['#3B82F6', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6', '#EC4899', '#14B8A6', '#F97316'];
+
+  // Get color for Yes/No questions
+  const getYesNoColor = (answer) => {
+    if (answer === 'Yes') return '#10B981'; // Green
+    if (answer === 'No') return '#EF4444'; // Red
+    return '#6B7280'; // Gray for other cases
+  };
 
   // Extract lower feedbacks: Students who answered "No" to Yes/No or rated < 8 stars
   const extractLowerFeedbacks = () => {
@@ -478,26 +486,34 @@ const ViewResponses = () => {
                         fill="#8884d8"
                         dataKey="value"
                       >
-                        {data.data.map((entry, index) => (
-                          <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                        ))}
+                        {data.data.map((entry, index) => {
+                          const fillColor = data.questionType === 'yes_no' 
+                            ? getYesNoColor(entry.name)
+                            : COLORS[index % COLORS.length];
+                          return <Cell key={`cell-${index}`} fill={fillColor} />;
+                        })}
                       </Pie>
                       <Tooltip />
                     </PieChart>
                   </ResponsiveContainer>
                 </div>
                 <div className="flex flex-col gap-2">
-                  {data.data.map((entry, idx) => (
-                    <div key={idx} className="flex items-center gap-2">
-                      <div 
-                        className="w-4 h-4 rounded" 
-                        style={{ backgroundColor: COLORS[idx % COLORS.length] }}
-                      />
-                      <span className="text-sm text-gray-700">
-                        {entry.name}: <span className="font-semibold">{entry.value}</span> responses
-                      </span>
-                    </div>
-                  ))}
+                  {data.data.map((entry, idx) => {
+                    const boxColor = data.questionType === 'yes_no' 
+                      ? getYesNoColor(entry.name)
+                      : COLORS[idx % COLORS.length];
+                    return (
+                      <div key={idx} className="flex items-center gap-2">
+                        <div 
+                          className="w-4 h-4 rounded" 
+                          style={{ backgroundColor: boxColor }}
+                        />
+                        <span className="text-sm text-gray-700">
+                          {entry.name}: <span className="font-semibold">{entry.value}</span> responses
+                        </span>
+                      </div>
+                    );
+                  })}
                 </div>
               </div>
             )}
