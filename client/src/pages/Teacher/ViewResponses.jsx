@@ -467,9 +467,17 @@ const ViewResponses = () => {
       <div className="space-y-8">
         {Object.entries(chartData).map(([questionId, data], index) => (
           <div key={questionId} className="bg-white border border-gray-200 rounded-lg shadow-sm p-6">
-            <h3 className="text-lg font-semibold text-gray-900 mb-4">
-              {data.questionText}
-            </h3>
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="text-lg font-semibold text-gray-900">
+                {data.questionText}
+              </h3>
+              {data.type === 'bar' && (
+                <div className="px-3 py-2 flex gap-4">
+                  <p className="text-xs font-semibold text-gray-600">AVG</p>
+                  <p className="text-xl font-bold text-blue-600">{data.averageRating.toFixed(1)}</p>
+                </div>
+              )}
+            </div>
             
             {data.type === 'pie' && data.data.length > 0 && (
               <div className="flex flex-col md:flex-row items-center justify-center gap-8">
@@ -519,14 +527,7 @@ const ViewResponses = () => {
             )}
 
             {data.type === 'bar' && (
-              <div className="relative" style={{ minHeight: 300 }}>
-                {/* Small Average Rating Badge in Corner */}
-                <div className="absolute top-0 right-0 bg-gradient-to-br from-blue-50 to-indigo-50 border border-blue-200 rounded-lg p-3 z-10">
-                  <p className="text-xs font-semibold text-gray-600">AVG</p>
-                  <p className="text-2xl font-bold text-blue-600">{data.averageRating.toFixed(1)}</p>
-                </div>
-
-                {/* Bar Chart */}
+              <div className="w-full" style={{ minHeight: 300 }}>
                 <ResponsiveContainer width="100%" height={300}>
                   <BarChart data={data.data}>
                     <CartesianGrid strokeDasharray="3 3" />
