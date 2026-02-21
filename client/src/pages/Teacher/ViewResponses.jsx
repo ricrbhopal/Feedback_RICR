@@ -519,44 +519,24 @@ const ViewResponses = () => {
             )}
 
             {data.type === 'bar' && (
-              <div className="space-y-6">
-                {/* Average Rating Display */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div className="bg-gradient-to-br from-blue-50 to-indigo-50 border border-blue-200 rounded-lg p-6">
-                    <p className="text-sm font-semibold text-gray-600 uppercase mb-2">Average Star Rating</p>
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <p className="text-4xl font-bold text-blue-600">{data.averageRating.toFixed(2)}</p>
-                        <p className="text-sm text-gray-600 mt-1">out of {data.maxStars} stars</p>
-                      </div>
-                      <div className="text-5xl">⭐</div>
-                    </div>
-                  </div>
-                  <div className="bg-gradient-to-br from-green-50 to-emerald-50 border border-green-200 rounded-lg p-6">
-                    <p className="text-sm font-semibold text-gray-600 uppercase mb-2">Performance Percentage</p>
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <p className="text-4xl font-bold text-green-600">{data.percentage.toFixed(1)}%</p>
-                        <p className="text-sm text-gray-600 mt-1">of maximum rating</p>
-                      </div>
-                      <div className="text-5xl">📊</div>
-                    </div>
-                  </div>
+              <div className="relative" style={{ minHeight: 300 }}>
+                {/* Small Average Rating Badge in Corner */}
+                <div className="absolute top-0 right-0 bg-gradient-to-br from-blue-50 to-indigo-50 border border-blue-200 rounded-lg p-3 z-10">
+                  <p className="text-xs font-semibold text-gray-600">AVG</p>
+                  <p className="text-2xl font-bold text-blue-600">{data.averageRating.toFixed(1)}</p>
                 </div>
 
                 {/* Bar Chart */}
-                <div className="w-full" style={{ minHeight: 300 }}>
-                  <ResponsiveContainer width="100%" height={300}>
-                    <BarChart data={data.data}>
-                      <CartesianGrid strokeDasharray="3 3" />
-                      <XAxis dataKey="stars" />
-                      <YAxis />
-                      <Tooltip />
-                      <Legend />
-                      <Bar dataKey="count" fill="#3B82F6" name="Number of Responses" />
-                    </BarChart>
-                  </ResponsiveContainer>
-                </div>
+                <ResponsiveContainer width="100%" height={300}>
+                  <BarChart data={data.data}>
+                    <CartesianGrid strokeDasharray="3 3" />
+                    <XAxis dataKey="stars" />
+                    <YAxis />
+                    <Tooltip />
+                    <Legend />
+                    <Bar dataKey="count" fill="#3B82F6" name="Number of Responses" />
+                  </BarChart>
+                </ResponsiveContainer>
               </div>
             )}
 
