@@ -1,6 +1,7 @@
-import React, { Suspense, lazy } from 'react'
+import React, { Suspense, lazy, useEffect, useState } from 'react'
 import { BrowserRouter, Routes, Route } from 'react-router-dom'
 import { Toaster } from 'react-hot-toast'
+import toast from 'react-hot-toast'
 import { AuthProvider } from './context/AuthContext'
 import Navbar from './components/Navbar'
 import ProtectedRoute from './components/ProtectedRoute'
@@ -35,6 +36,63 @@ const PageLoader = () => (
 const App = () => {
   // Control max screen width here
   const MAX_WIDTH = "max-w-9xl"; // Change to max-w-6xl, max-w-screen-xl, etc.
+  const [appVersion, setAppVersion] = useState(null);
+  const [updateAvailable, setUpdateAvailable] = useState(false);
+
+  // Check for app updates every 60 seconds
+  useEffect(() => {
+    const checkForUpdates = async () => {
+      try {
+        const response = await fetch('/index.html', { cache: 'no-store' });
+        const html = await response.text();
+        const parser = new DOMParser();
+        const doc = parser.parseFromString(html, 'text/html');
+        const versionMeta = doc.querySelector('meta[name="app-version"]');
+        const newVersion = versionMeta?.getAttribute('content');
+
+        // First load - set current version
+        if (!appVersion) {
+          setAppVersion(newVersion);
+        }
+        // New version detected
+        else if (newVersion && newVersion !== appVersion) {
+          setUpdateAvailable(true);
+          toast.custom((t) => (
+            <div className="bg-blue-600 text-white p-4 rounded-lg shadow-lg max-w-md">
+              <p className="font-semibold mb-2">🔄 New Version Available</p>
+              <p className="text-sm mb-3">A new version has been deployed. Please refresh to get the latest updates.</p>
+              <div className="flex gap-2">
+                <button
+                  onClick={() => {
+                    window.location.reload();
+                  }}
+                  className="px-4 py-2 bg-white text-blue-600 font-semibold rounded hover:bg-gray-100 transition-colors"
+                >
+                  Refresh Now
+                </button>
+                <button
+                  onClick={() => toast.dismiss(t.id)}
+                  className="px-4 py-2 bg-blue-700 rounded hover:bg-blue-800 transition-colors"
+                >
+                  Later
+                </button>
+              </div>
+            </div>
+          ), { duration: Infinity });
+        }
+      } catch (error) {
+        console.warn('Failed to check for updates:', error);
+      }
+    };
+
+    // Check immediately on mount
+    checkForUpdates();
+
+    // Then check every 60 seconds
+    const interval = setInterval(checkForUpdates, 60000);
+
+    return () => clearInterval(interval);
+  }, [appVersion]);
 
   return (
     <AuthProvider>

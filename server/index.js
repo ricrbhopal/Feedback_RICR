@@ -13,8 +13,11 @@ import dashboardRouter from "./src/routes/dashboardRouter.js";
 import connectDB from "./src/config/db.js";
 import cors from "cors";
 import cookieParser from "cookie-parser";
+import path from "path";
+import { fileURLToPath } from "url";
 
-
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 const app = express();
 
@@ -30,6 +33,21 @@ app.use(express.json());
 app.use(cookieParser());
 app.use(compression());
 app.use(morgan("dev"))
+
+// Cache busting middleware
+app.use((req, res, next) => {
+  // No caching for HTML files and API
+  if (req.url.endsWith('.html') || req.url.startsWith('/auth') || req.url.startsWith('/forms') || req.url.startsWith('/responses') || req.url.startsWith('/dashboard')) {
+    res.set('Cache-Control', 'no-cache, no-store, must-revalidate');
+    res.set('Pragma', 'no-cache');
+    res.set('Expires', '0');
+  } 
+  // Long cache for versioned assets (with hash)
+  else if (req.url.match(/\.[a-f0-9]{8}\./i)) {
+    res.set('Cache-Control', 'public, max-age=31536000, immutable');
+  }
+  next();
+});
 
 app.use("/auth", AuthRouter);
 app.use("/forms", FormRouter);
