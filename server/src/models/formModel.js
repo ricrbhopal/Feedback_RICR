@@ -29,7 +29,7 @@ const questionSchema = new mongoose.Schema(
 
     maxStars: {
       type: Number,
-      default: 5,
+      default: 10,
       min: 1,
       max: 10,
     },
@@ -125,6 +125,12 @@ const formSchema = new mongoose.Schema(
     timestamps: true,
   }
 );
+
+// Indexes for fast lookups
+formSchema.index({ createdBy: 1, approvalStatus: 1 });
+formSchema.index({ assignedTo: 1, approvalStatus: 1 });
+formSchema.index({ isActive: 1 });
+formSchema.index({ createdAt: -1 });
 
 const Form = mongoose.model("Form", formSchema);
 

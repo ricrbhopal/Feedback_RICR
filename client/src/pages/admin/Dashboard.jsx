@@ -1,10 +1,11 @@
-import React, { useState } from "react";
+import React, { useState, useMemo, useCallback } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import toast from "react-hot-toast";
 import QRCodeModal from "../../components/QRCodeModal.jsx";
 import api from "../../config/api.jsx";
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import { useAuth } from "../../context/AuthContext";
+import { formatDate } from "../../utils/formatDate";
 
 const Dashboard = () => {
   const { user } = useAuth();
@@ -30,39 +31,45 @@ const Dashboard = () => {
   const [localQuestions, setLocalQuestions] = useState([]);
   const [localAllowedBatches, setLocalAllowedBatches] = useState([]);
   const [localBatchInput, setLocalBatchInput] = useState("");
+  const [selectedTeacher, setSelectedTeacher] = useState("all");
+  const [dateFilter, setDateFilter] = useState(() => new Date().toISOString().split('T')[0]);
+  const abortRef = useRef(null);
 
-  const fetchForms = async () => {
+  const fetchForms = useCallback(async () => {
     try {
-      const res = await api.get("/forms");
+      abortRef.current?.abort();
+      abortRef.current = new AbortController();
+      const res = await api.get("/forms", { signal: abortRef.current.signal });
       setForms(res.data.data);
     } catch (error) {
-      console.error("Error fetching forms", error);
+      if (error.name !== 'CanceledError') console.error("Error fetching forms", error);
     }
-  };
+  }, []);
 
-  const fetchStats = async () => {
+  const fetchStats = useCallback(async () => {
     try {
       const res = await api.get("/dashboard/stats");
       setStats(res.data.data);
     } catch (error) {
       console.error("Error fetching dashboard stats", error);
     }
-  };
+  }, []);
 
-  const fetchTeachers = async () => {
+  const fetchTeachers = useCallback(async () => {
     try {
       const res = await api.get("/auth/teachers");
       setTeachers(res.data.data);
     } catch (error) {
       console.error("Error fetching teachers", error);
     }
-  };
+  }, []);
 
   useEffect(() => {
     fetchForms();
     fetchStats();
     fetchTeachers();
-  }, []);
+    return () => abortRef.current?.abort();
+  }, [fetchForms, fetchStats, fetchTeachers]);
 
   // Populate local editable copy whenever modal opens for a form
   useEffect(() => {
@@ -76,7 +83,7 @@ const Dashboard = () => {
           questionText: q.questionText || q.question || "",
           type: q.type || "short",
           options: q.options || [],
-          maxStars: q.maxStars || 5,
+          maxStars: q.maxStars || 10,
           required: q.required !== undefined ? q.required : true,
         }))
       );
@@ -89,9 +96,9 @@ const Dashboard = () => {
     const newQuestion = {
       id: Date.now(),
       questionText: "",
-      type: "short",
-      options: [""],
-      maxStars: 5,
+      type: "yes_no",
+      options: ["Yes", "No"],
+      maxStars: 10,
       required: true,
     };
     setLocalQuestions([...localQuestions, newQuestion]);
@@ -123,7 +130,7 @@ const Dashboard = () => {
           } else if (!needsOptions && hadOptions) {
             updated.options = [];
           }
-          if (value === "star_rating" && !q.maxStars) updated.maxStars = 5;
+          if (value === "star_rating" && !q.maxStars) updated.maxStars = 10;
         }
         return updated;
       })
@@ -343,15 +350,32 @@ const Dashboard = () => {
     }
   };
 
-  const pendingForms = forms.filter(
+  const pendingForms = useMemo(() => forms.filter(
     (form) => form.approvalStatus === "pending"
-  );
-  const approvedForms = forms.filter(
+  ), [forms]);
+  const approvedForms = useMemo(() => forms.filter(
     (form) => form.approvalStatus === "approved"
-  );
-  const rejectedForms = forms.filter(
+  ), [forms]);
+  const rejectedForms = useMemo(() => forms.filter(
     (form) => form.approvalStatus === "rejected"
-  );
+  ), [forms]);
+
+  // Filtered forms for "All Forms" table — by teacher and date
+  const filteredForms = useMemo(() => {
+    return forms.filter(form => {
+      // Teacher filter
+      if (selectedTeacher !== "all") {
+        const createdById = typeof form.createdBy === 'object' ? form.createdBy?._id : form.createdBy;
+        if (String(createdById) !== String(selectedTeacher)) return false;
+      }
+      // Date filter
+      if (dateFilter) {
+        const formDate = new Date(form.createdAt).toISOString().split('T')[0];
+        if (formDate !== dateFilter) return false;
+      }
+      return true;
+    });
+  }, [forms, selectedTeacher, dateFilter]);
 
   return (
     <div className="min-h-screen bg-gray-50 py-8 px-4">
@@ -451,17 +475,10 @@ const Dashboard = () => {
                         {form.title}
                       </td>
                       <td className="px-6 py-4 text-sm text-gray-600">
-                        {selectedFormForApproval &&
-                        selectedFormForApproval._id === form._id
-                          ? form.createdBy?.fullName ||
-                            form.createdBy ||
-                            "Teacher"
-                          : form.createdBy?.fullName ||
-                            form.createdBy ||
-                            "Teacher"}
+                        {form.createdBy?.fullName || "Teacher"}
                       </td>
                       <td className="px-6 py-4 text-sm text-gray-600">
-                        {new Date(form.createdAt).toLocaleDateString()}
+                        {formatDate(form.createdAt)}
                       </td>
                       <td className="px-6 py-4 text-sm">
                         <div className="flex gap-2 flex-wrap">
@@ -502,7 +519,52 @@ const Dashboard = () => {
         {/* All Forms table */}
         <div className="bg-white border border-gray-200 rounded-lg overflow-hidden">
           <div className="px-6 py-4 border-b border-gray-200">
-            <h2 className="text-xl font-semibold text-gray-900">All Forms</h2>
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+              <h2 className="text-xl font-semibold text-gray-900">All Forms</h2>
+              <div className="flex items-center gap-2">
+                <label className="text-sm font-medium text-gray-700">Date:</label>
+                <input
+                  type="date"
+                  value={dateFilter}
+                  onChange={(e) => setDateFilter(e.target.value)}
+                  className="px-3 py-1.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                />
+                {dateFilter && (
+                  <button
+                    onClick={() => setDateFilter("")}
+                    className="px-3 py-1.5 text-sm text-gray-600 hover:text-gray-900 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
+                  >
+                    Clear
+                  </button>
+                )}
+              </div>
+            </div>
+            {/* Teacher Name Tabs */}
+            <div className="flex flex-wrap gap-2 mt-4">
+              <button
+                onClick={() => setSelectedTeacher("all")}
+                className={`px-4 py-2 text-sm font-medium rounded-lg transition-colors ${
+                  selectedTeacher === "all"
+                    ? "bg-blue-600 text-white"
+                    : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+                }`}
+              >
+                All Teachers
+              </button>
+              {teachers.map((teacher) => (
+                <button
+                  key={teacher._id}
+                  onClick={() => setSelectedTeacher(teacher._id)}
+                  className={`px-4 py-2 text-sm font-medium rounded-lg transition-colors ${
+                    selectedTeacher === teacher._id
+                      ? "bg-blue-600 text-white"
+                      : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+                  }`}
+                >
+                  {teacher.fullName}
+                </button>
+              ))}
+            </div>
           </div>
           <div className="overflow-x-auto">
             <table className="w-full">
@@ -526,13 +588,20 @@ const Dashboard = () => {
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-200">
-                {forms.map((form) => (
+                {filteredForms.length === 0 ? (
+                  <tr>
+                    <td colSpan="5" className="px-6 py-8 text-center text-gray-500">
+                      No forms found for the selected filters.
+                    </td>
+                  </tr>
+                ) : (
+                  filteredForms.map((form) => (
                   <tr key={form._id} className="hover:bg-gray-50">
                     <td className="px-6 py-4 text-sm text-gray-900">
                       {form.title}
                     </td>
                     <td className="px-6 py-4 text-sm text-gray-600">
-                      {new Date(form.createdAt).toLocaleDateString()}
+                      {formatDate(form.createdAt)}
                     </td>
                     <td className="px-6 py-4 text-sm">
                       <span
@@ -617,7 +686,8 @@ const Dashboard = () => {
                       </div>
                     </td>
                   </tr>
-                ))}
+                ))
+                )}
               </tbody>
             </table>
           </div>

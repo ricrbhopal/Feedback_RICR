@@ -3,6 +3,7 @@ dotenv.config();
 
 import express from "express";
 import morgan from "morgan";
+import compression from "compression";
 import AuthRouter from "./src/routes/authRouter.js";
 import FormRouter from "./src/routes/formRouter.js"
 import ResponseRouter from "./src/routes/responseRouter.js";
@@ -27,6 +28,7 @@ app.use(
 
 app.use(express.json());
 app.use(cookieParser());
+app.use(compression());
 app.use(morgan("dev"))
 
 app.use("/auth", AuthRouter);

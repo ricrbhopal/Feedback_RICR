@@ -46,9 +46,9 @@ const TeacherEditForm = () => {
     const newQuestion = {
       id: Date.now(),
       questionText: "",
-      type: "short",
-      options: [""],
-      maxStars: 5,
+      type: "yes_no",
+      options: ["Yes", "No"],
+      maxStars: 10,
       required: true,
     };
     setQuestions([...questions, newQuestion]);
@@ -593,7 +593,7 @@ const TeacherEditForm = () => {
                             Maximum Stars
                           </label>
                           <select
-                            value={question.maxStars || 5}
+                            value={question.maxStars || 10}
                             onChange={(e) =>
                               handleQuestionChange(
                                 question.id,

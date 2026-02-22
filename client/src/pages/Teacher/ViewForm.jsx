@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import api from '../../config/api';
+import { formatDate } from '../../utils/formatDate';
 
 const ViewForm = () => {
   const { id } = useParams();
@@ -71,7 +72,7 @@ const ViewForm = () => {
               )}
               <div className="flex gap-4 text-sm text-gray-600">
                 <span>Status: <span className={`font-medium ${form.status === 'Active' ? 'text-green-600' : 'text-gray-600'}`}>{form.status}</span></span>
-                <span>Created: {new Date(form.createdAt).toLocaleDateString()}</span>
+                <span>Created: {formatDate(form.createdAt)}</span>
               </div>
             </div>
 

@@ -102,9 +102,13 @@ export const getFormById = async (req, res, next) => {
     if (form.isActive && form.activatedAt) {
       const fifteenMinutesAgo = new Date(Date.now() - 15 * 60 * 1000);
       if (form.activatedAt < fifteenMinutesAgo) {
+        // Use updateOne to avoid fetching and saving the full document
+        await Form.updateOne(
+          { _id: form._id },
+          { $set: { isActive: false, activatedAt: null } }
+        );
         form.isActive = false;
         form.activatedAt = null;
-        await form.save();
       }
     }
 
@@ -126,10 +130,20 @@ export const getAllForms = async (req, res, next) => {
     let forms;
     if (onlyAssigned) {
       // Only teachers should call this; admins can still use it but will get all assigned forms
-      forms = await Form.find({ assignedTo: req.user._id, approvalStatus: "approved" }).sort({ createdAt: -1 });
+      forms = await Form.find({ assignedTo: req.user._id, approvalStatus: "approved" })
+        .select('-questions')
+        .populate('createdBy', 'fullName email')
+        .populate('assignedTo', 'fullName email')
+        .sort({ createdAt: -1 })
+        .lean();
     } else if (req.user.role === "admin") {
       // Admin sees all forms (created by admin and pending/approved from teachers)
-      forms = await Form.find().sort({ createdAt: -1 });
+      forms = await Form.find()
+        .select('-questions')
+        .populate('createdBy', 'fullName email')
+        .populate('assignedTo', 'fullName email')
+        .sort({ createdAt: -1 })
+        .lean();
     } else {
       // Teacher sees:
       // 1. Forms created by them
@@ -139,7 +153,12 @@ export const getAllForms = async (req, res, next) => {
           { createdBy: req.user._id },
           { assignedTo: req.user._id, approvalStatus: "approved" }
         ]
-      }).sort({ createdAt: -1 });
+      })
+        .select('-questions')
+        .populate('createdBy', 'fullName email')
+        .populate('assignedTo', 'fullName email')
+        .sort({ createdAt: -1 })
+        .lean();
     }
 
     res.json({ data: forms });

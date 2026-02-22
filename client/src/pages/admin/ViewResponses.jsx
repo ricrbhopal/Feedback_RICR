@@ -1,9 +1,11 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useMemo, useCallback, useRef } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import api from '../../config/api';
+import { formatDate, formatTime } from '../../utils/formatDate';
 import toast from 'react-hot-toast';
 import { Pie, Bar } from 'react-chartjs-2';
 import * as XLSX from 'xlsx';
+import QRCodeModal from '../../components/QRCodeModal';
 import {
   Chart as ChartJS,
   ArcElement,
@@ -33,22 +35,27 @@ const ViewResponses = () => {
   const [activeTab, setActiveTab] = useState('summary'); // 'summary', 'individual', or 'lower-feedback'
   const [selectedStudent, setSelectedStudent] = useState('');
   const [selectedLowerFeedbackStudent, setSelectedLowerFeedbackStudent] = useState('');
+  const [reFeedbackQR, setReFeedbackQR] = useState({ isOpen: false, link: '', title: '' });
+  const abortRef = useRef(null);
 
-  const fetchResponses = async () => {
+  const fetchResponses = useCallback(async () => {
     try {
+      abortRef.current?.abort();
+      abortRef.current = new AbortController();
       setLoading(true);
-      const res = await api.get(`/responses/${formId}/responses`);
+      const res = await api.get(`/responses/${formId}/responses`, { signal: abortRef.current.signal });
       setResponses(res.data.data);
     } catch (error) {
-      console.error("Error fetching responses", error);
+      if (error.name !== 'CanceledError') console.error("Error fetching responses", error);
     } finally {
       setLoading(false);
     }
-  };
+  }, [formId]);
 
   useEffect(() => {
     fetchResponses();
-  }, [formId]);
+    return () => abortRef.current?.abort();
+  }, [fetchResponses]);
 
   const exportToExcel = async () => {
     if (responses.length === 0) {
@@ -71,8 +78,8 @@ const ViewResponses = () => {
         const row = [
           response.studentName,
           response.batch || 'N/A',
-          new Date(response.submittedAt).toLocaleDateString(),
-          new Date(response.submittedAt).toLocaleTimeString()
+          formatDate(response.submittedAt),
+          formatTime(response.submittedAt)
         ];
 
         response.answers.forEach(answerObj => {
@@ -108,18 +115,17 @@ const ViewResponses = () => {
     }
   };
 
-  // Process data for visualizations
-  const processDataForCharts = () => {
+  // Process data for visualizations (memoized)
+  const chartData = useMemo(() => {
     if (responses.length === 0 || !responses[0].form) return {};
 
     const questions = responses[0].form.questions;
-    const chartData = {};
+    const result = {};
 
     questions.forEach(question => {
       const questionId = question._id.toString();
       
       if (question.type === 'mcq' || question.type === 'yes_no') {
-        // Pie chart data for MCQ and Yes/No
         const optionCounts = {};
         responses.forEach(response => {
           const answer = response.answers.find(a => a.questionId.toString() === questionId);
@@ -129,17 +135,15 @@ const ViewResponses = () => {
           }
         });
         
-        chartData[questionId] = {
+        result[questionId] = {
           type: 'pie',
           questionText: question.questionText,
           data: Object.entries(optionCounts).map(([name, value]) => ({ name, value }))
         };
       } else if (question.type === 'star_rating') {
-        // Bar chart data for Star Rating
         const starCounts = {};
-        const maxStars = question.maxStars || 5;
+        const maxStars = question.maxStars || 10;
         
-        // Initialize all star values
         for (let i = 1; i <= maxStars; i++) {
           starCounts[i] = 0;
         }
@@ -147,14 +151,15 @@ const ViewResponses = () => {
         responses.forEach(response => {
           const answer = response.answers.find(a => a.questionId.toString() === questionId);
           if (answer && answer.answer) {
-            const rating = parseInt(answer.answer);
+            const ansVal = answer.answer;
+            const rating = typeof ansVal === 'object' && ansVal !== null ? parseInt(ansVal.rating) : parseInt(ansVal);
             if (rating >= 1 && rating <= maxStars) {
               starCounts[rating] = (starCounts[rating] || 0) + 1;
             }
           }
         });
         
-        chartData[questionId] = {
+        result[questionId] = {
           type: 'bar',
           questionText: question.questionText,
           data: Object.entries(starCounts).map(([stars, count]) => ({ 
@@ -163,7 +168,6 @@ const ViewResponses = () => {
           }))
         };
       } else if (question.type === 'short' || question.type === 'paragraph') {
-        // Distinct text answers
         const distinctAnswers = new Set();
         responses.forEach(response => {
           const answer = response.answers.find(a => a.questionId.toString() === questionId);
@@ -172,7 +176,7 @@ const ViewResponses = () => {
           }
         });
         
-        chartData[questionId] = {
+        result[questionId] = {
           type: 'text',
           questionText: question.questionText,
           questionType: question.type,
@@ -181,14 +185,12 @@ const ViewResponses = () => {
       }
     });
 
-    return chartData;
-  };
+    return result;
+  }, [responses]);
 
   const COLORS = ['#3B82F6', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6', '#EC4899', '#14B8A6', '#F97316'];
 
   const renderSummaryView = () => {
-    const chartData = processDataForCharts();
-    
     if (Object.keys(chartData).length === 0) {
       return (
         <div className="bg-white border border-gray-200 rounded-lg shadow-sm p-8 text-center">
@@ -270,6 +272,7 @@ const ViewResponses = () => {
                         backgroundColor: '#3B82F6',
                         borderColor: '#2563EB',
                         borderWidth: 1,
+                        barThickness: 20,
                       }
                     ]
                   }}
@@ -345,7 +348,7 @@ const ViewResponses = () => {
             <option value="">Choose a student...</option>
             {responses.map((response, idx) => (
               <option key={response._id} value={response._id}>
-                {response.studentName} {response.batch ? `(${response.batch})` : ''} - {new Date(response.submittedAt).toLocaleDateString()}
+                {response.studentName} {response.batch ? `(${response.batch})` : ''} - {formatDate(response.submittedAt)}
               </option>
             ))}
           </select>
@@ -366,10 +369,10 @@ const ViewResponses = () => {
               </div>
               <div className="text-right">
                 <p className="text-sm text-gray-600">
-                  {new Date(selectedResponse.submittedAt).toLocaleDateString()}
+                  {formatDate(selectedResponse.submittedAt)}
                 </p>
                 <p className="text-xs text-gray-500">
-                  {new Date(selectedResponse.submittedAt).toLocaleTimeString()}
+                  {formatTime(selectedResponse.submittedAt)}
                 </p>
               </div>
             </div>
@@ -383,33 +386,42 @@ const ViewResponses = () => {
                 
                 const renderAnswer = () => {
                   if (question?.type === 'star_rating') {
-                    const rating = parseInt(answerObj.answer) || 0;
-                    const maxStars = question.maxStars || 5;
+                    const ansVal = answerObj.answer;
+                    const rating = typeof ansVal === 'object' && ansVal !== null ? parseInt(ansVal.rating) || 0 : parseInt(ansVal) || 0;
+                    const reason = typeof ansVal === 'object' && ansVal !== null ? ansVal.reason : null;
+                    const maxStars = question.maxStars || 10;
                     return (
-                      <div className="flex items-center gap-1">
-                        {[...Array(maxStars)].map((_, starIdx) => (
-                          <svg
-                            key={starIdx}
-                            className={`w-6 h-6 ${
-                              starIdx < rating
-                                ? 'text-yellow-400 fill-current'
-                                : 'text-gray-300'
-                            }`}
-                            xmlns="http://www.w3.org/2000/svg"
-                            viewBox="0 0 24 24"
-                            stroke="currentColor"
-                            strokeWidth="1"
-                          >
-                            <path
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                              d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z"
-                            />
-                          </svg>
-                        ))}
-                        <span className="ml-2 text-sm text-gray-600">
-                          ({rating} / {maxStars})
-                        </span>
+                      <div>
+                        <div className="flex items-center gap-1">
+                          {[...Array(maxStars)].map((_, starIdx) => (
+                            <svg
+                              key={starIdx}
+                              className={`w-6 h-6 ${
+                                starIdx < rating
+                                  ? 'text-yellow-400 fill-current'
+                                  : 'text-gray-300'
+                              }`}
+                              xmlns="http://www.w3.org/2000/svg"
+                              viewBox="0 0 24 24"
+                              stroke="currentColor"
+                              strokeWidth="1"
+                            >
+                              <path
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z"
+                              />
+                            </svg>
+                          ))}
+                          <span className="ml-2 text-sm text-gray-600">
+                            ({rating} / {maxStars})
+                          </span>
+                        </div>
+                        {reason && (
+                          <div className="mt-2 p-2 bg-yellow-50 border border-yellow-200 rounded">
+                            <p className="text-sm text-yellow-800"><strong>Reason:</strong> {reason}</p>
+                          </div>
+                        )}
                       </div>
                     );
                   }
@@ -447,8 +459,8 @@ const ViewResponses = () => {
     );
   };
 
-  // Extract lower feedbacks: Students who answered "No" to Yes/No or rated < 8 stars
-  const extractLowerFeedbacks = () => {
+  // Extract lower feedbacks (memoized): Students who answered "No" to Yes/No or rated < 8 stars
+  const lowerFeedbackData = useMemo(() => {
     if (responses.length === 0 || !responses[0].form) {
       return [];
     }
@@ -464,38 +476,44 @@ const ViewResponses = () => {
 
         let isLowerFeedback = false;
 
-        // Check for "No" in Yes/No questions
         if (question.type === 'yes_no' && answerObj.answer === 'No') {
           isLowerFeedback = true;
         }
 
-        // Check for rating < 8 in Star Rating questions
         if (question.type === 'star_rating') {
-          const rating = parseInt(answerObj.answer);
+          const ansVal = answerObj.answer;
+          const rating = typeof ansVal === 'object' && ansVal !== null ? parseInt(ansVal.rating) : parseInt(ansVal);
           if (rating < 8) {
             isLowerFeedback = true;
           }
         }
 
         if (isLowerFeedback) {
+          const ansVal = answerObj.answer;
+          const displayAnswer = question.type === 'star_rating'
+            ? (typeof ansVal === 'object' && ansVal !== null ? ansVal.rating : ansVal)
+            : ansVal;
+          const reason = question.type === 'star_rating' && typeof ansVal === 'object' && ansVal !== null ? ansVal.reason : null;
           lowerFeedbackList.push({
             studentName: response.studentName,
             batch: response.batch,
             submittedAt: response.submittedAt,
             questionText: question.questionText,
             questionType: question.type,
-            answer: answerObj.answer,
-            questionId: question._id
+            answer: displayAnswer,
+            reason: reason,
+            questionId: question._id,
+            responseId: response._id
           });
         }
       });
     });
 
     return lowerFeedbackList;
-  };
+  }, [responses]);
 
   const renderLowerFeedbackView = () => {
-    const lowerFeedbacks = extractLowerFeedbacks();
+    const lowerFeedbacks = lowerFeedbackData;
 
     if (lowerFeedbacks.length === 0) {
       return (
@@ -579,14 +597,76 @@ const ViewResponses = () => {
                   </div>
                   <div>
                     <p className="text-xs font-semibold text-gray-600 uppercase">Submission Date</p>
-                    <p className="text-lg font-semibold text-gray-900">{new Date(selectedStudentResponse.submittedAt).toLocaleDateString()}</p>
+                    <p className="text-lg font-semibold text-gray-900">{formatDate(selectedStudentResponse.submittedAt)}</p>
                   </div>
                   <div>
                     <p className="text-xs font-semibold text-gray-600 uppercase">Submission Time</p>
-                    <p className="text-lg font-semibold text-gray-900">{new Date(selectedStudentResponse.submittedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</p>
+                    <p className="text-lg font-semibold text-gray-900">{formatTime(selectedStudentResponse.submittedAt)}</p>
                   </div>
                 </div>
+                {/* Generate Re-Feedback QR Button */}
+                <div className="mt-4 pt-4 border-t border-gray-200">
+                  <button
+                    onClick={() => {
+                      const link = `${window.location.origin}/form/${formId}/re-feedback/${selectedStudentResponse._id}`;
+                      setReFeedbackQR({ isOpen: true, link, title: `Re-Feedback: ${selectedStudentResponse.studentName}` });
+                    }}
+                    className="px-4 py-2 bg-orange-600 text-white font-medium rounded hover:bg-orange-700 focus:outline-none focus:ring-2 focus:ring-orange-600 focus:ring-offset-2 flex items-center gap-2"
+                  >
+                    🔄 Generate Re-Feedback QR Code
+                  </button>
+                </div>
               </div>
+
+              {/* Show Re-Feedback Responses if any */}
+              {(() => {
+                const reFeedbacks = responses.filter(r => r.isReFeedback && r.originalResponseId === selectedStudentResponse._id);
+                if (reFeedbacks.length === 0) return null;
+                return (
+                  <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+                    <h3 className="text-lg font-semibold text-green-900 mb-3">🔄 Re-Feedback Responses</h3>
+                    {reFeedbacks.map((reFeedback, rIdx) => (
+                      <div key={rIdx} className="mb-4 p-4 bg-white border border-green-100 rounded">
+                        <p className="text-sm text-gray-600 mb-3">
+                          Re-submitted on: {formatDate(reFeedback.submittedAt)} at {formatTime(reFeedback.submittedAt)}
+                        </p>
+                        {reFeedback.answers.map((newAns, aIdx) => {
+                          const question = responses[0]?.form?.questions?.find(q => q._id.toString() === newAns.questionId.toString());
+                          const prevAns = reFeedback.previousAnswers?.find(p => p.questionId.toString() === newAns.questionId.toString());
+                          if (!question) return null;
+                          
+                          const formatAnswer = (ans) => {
+                            if (ans === null || ans === undefined) return 'N/A';
+                            if (typeof ans === 'object' && ans !== null && ans.rating !== undefined) return `${ans.rating} / ${question.maxStars || 10}${ans.reason ? ` (Reason: ${ans.reason})` : ''}`;
+                            if (Array.isArray(ans)) return ans.join(', ');
+                            return String(ans);
+                          };
+
+                          const oldFormatted = prevAns ? formatAnswer(prevAns.answer) : 'N/A';
+                          const newFormatted = formatAnswer(newAns.answer);
+                          const changed = oldFormatted !== newFormatted;
+
+                          return (
+                            <div key={aIdx} className={`p-3 mb-2 rounded border ${changed ? 'border-orange-200 bg-orange-50' : 'border-gray-100 bg-gray-50'}`}>
+                              <p className="text-sm font-medium text-gray-700 mb-1">{question.questionText}</p>
+                              <div className="grid grid-cols-2 gap-4 text-sm">
+                                <div>
+                                  <p className="text-xs font-semibold text-gray-500 uppercase">Old Answer</p>
+                                  <p className="text-gray-800">{oldFormatted}</p>
+                                </div>
+                                <div>
+                                  <p className="text-xs font-semibold text-gray-500 uppercase">New Answer</p>
+                                  <p className={`${changed ? 'text-orange-700 font-semibold' : 'text-gray-800'}`}>{newFormatted}</p>
+                                </div>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    ))}
+                  </div>
+                );
+              })()}
 
               {/* Lower Feedback Items */}
               <div className="space-y-4">
@@ -612,11 +692,18 @@ const ViewResponses = () => {
                         </div>
                       )}
                       {feedback.questionType === 'star_rating' && (
-                        <div className="flex items-center gap-3">
-                          <span className="text-lg">⭐</span>
-                          <span className="inline-block px-4 py-2 bg-yellow-100 text-yellow-800 rounded font-bold text-base">
-                            {feedback.answer} out of 10
-                          </span>
+                        <div>
+                          <div className="flex items-center gap-3">
+                            <span className="text-lg">⭐</span>
+                            <span className="inline-block px-4 py-2 bg-yellow-100 text-yellow-800 rounded font-bold text-base">
+                              {feedback.answer} out of 10
+                            </span>
+                          </div>
+                          {feedback.reason && (
+                            <div className="mt-2 p-2 bg-yellow-50 border border-yellow-200 rounded">
+                              <p className="text-sm text-yellow-800"><strong>Reason:</strong> {feedback.reason}</p>
+                            </div>
+                          )}
                         </div>
                       )}
                     </div>
@@ -664,6 +751,7 @@ const ViewResponses = () => {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center px-4">
         <div className="text-center">
+          <div className="inline-block h-10 w-10 animate-spin rounded-full border-4 border-blue-600 border-t-transparent mb-4"></div>
           <p className="text-lg text-gray-600">Loading responses...</p>
         </div>
       </div>
@@ -766,6 +854,14 @@ const ViewResponses = () => {
           </>
         )}
       </div>
+
+      {/* Re-Feedback QR Code Modal */}
+      <QRCodeModal
+        isOpen={reFeedbackQR.isOpen}
+        onClose={() => setReFeedbackQR({ isOpen: false, link: '', title: '' })}
+        formLink={reFeedbackQR.link}
+        formTitle={reFeedbackQR.title}
+      />
     </div>
   );
 };

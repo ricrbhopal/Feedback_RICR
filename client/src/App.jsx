@@ -1,33 +1,49 @@
-import React from 'react'
+import React, { Suspense, lazy } from 'react'
 import { BrowserRouter, Routes, Route } from 'react-router-dom'
 import { Toaster } from 'react-hot-toast'
 import { AuthProvider } from './context/AuthContext'
 import Navbar from './components/Navbar'
 import ProtectedRoute from './components/ProtectedRoute'
-import Home from './pages/Home.jsx'
-import Login from './pages/admin/Login.jsx'
-import Dashboard from './pages/admin/Dashboard.jsx'
-import CreateForm from './pages/admin/CreateForms.jsx'
-import EditForm from './pages/admin/EditForm.jsx'
-import ManageTeachers from './pages/admin/ManageTeachers.jsx'
-import FillForm from "./pages/student/FillForm.jsx";
-import ViewForm from './pages/admin/ViewForm.jsx'
-import ViewResponses from './pages/admin/ViewResponses.jsx'
-import TeacherDashboard from './pages/Teacher/Dashboard.jsx'
-import TeacherViewForm from './pages/Teacher/ViewForm.jsx'
-import TeacherViewResponses from './pages/Teacher/ViewResponses.jsx'
-import TeacherCreateForm from './pages/Teacher/CreateForm.jsx'
-import TeacherEditForm from './pages/Teacher/EditForm.jsx'
 
+// Lazy-loaded pages for code splitting
+const Home = lazy(() => import('./pages/Home.jsx'));
+const Login = lazy(() => import('./pages/admin/Login.jsx'));
+const Dashboard = lazy(() => import('./pages/admin/Dashboard.jsx'));
+const CreateForm = lazy(() => import('./pages/admin/CreateForms.jsx'));
+const EditForm = lazy(() => import('./pages/admin/EditForm.jsx'));
+const ManageTeachers = lazy(() => import('./pages/admin/ManageTeachers.jsx'));
+const FillForm = lazy(() => import('./pages/student/FillForm.jsx'));
+const ReFeedbackForm = lazy(() => import('./pages/student/ReFeedbackForm.jsx'));
+const ViewForm = lazy(() => import('./pages/admin/ViewForm.jsx'));
+const ViewResponses = lazy(() => import('./pages/admin/ViewResponses.jsx'));
+const TeacherDashboard = lazy(() => import('./pages/Teacher/Dashboard.jsx'));
+const TeacherViewForm = lazy(() => import('./pages/Teacher/ViewForm.jsx'));
+const TeacherViewResponses = lazy(() => import('./pages/Teacher/ViewResponses.jsx'));
+const TeacherCreateForm = lazy(() => import('./pages/Teacher/CreateForm.jsx'));
+const TeacherEditForm = lazy(() => import('./pages/Teacher/EditForm.jsx'));
+
+const PageLoader = () => (
+  <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+    <div className="text-center">
+      <div className="inline-block h-10 w-10 animate-spin rounded-full border-4 border-blue-600 border-t-transparent mb-4"></div>
+      <p className="text-lg text-gray-600">Loading...</p>
+    </div>
+  </div>
+);
 
 
 const App = () => {
+  // Control max screen width here
+  const MAX_WIDTH = "max-w-9xl"; // Change to max-w-6xl, max-w-screen-xl, etc.
+
   return (
     <AuthProvider>
-    <BrowserRouter>
-    <Toaster position="top-center" />
-    <Navbar />    
-    <Routes>
+      <BrowserRouter>
+        <Toaster position="top-center" />
+        <Navbar />    
+        <div className={`${MAX_WIDTH} mx-auto w-full`}>
+          <Suspense fallback={<PageLoader />}>
+            <Routes>
       <Route path="/" element={<Login />} />
       <Route path="/login" element={<Login />} />
       
@@ -90,10 +106,13 @@ const App = () => {
         </ProtectedRoute>
       } />
       
-      {/* Public Route */}
+      {/* Public Routes */}
       <Route path="/form/:formId" element={<FillForm />} />
+      <Route path="/form/:formId/re-feedback/:responseId" element={<ReFeedbackForm />} />
     </Routes>
-    </BrowserRouter>
+            </Suspense>
+        </div>
+      </BrowserRouter>
     </AuthProvider>
   )
 }

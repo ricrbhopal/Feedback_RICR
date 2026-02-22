@@ -10,22 +10,18 @@ export const getDashboardStats = async (req, res, next) => {
       formFilter.assignedTo = req.user._id;
     }
     
-    const totalForms = await Form.countDocuments(formFilter);
-
-    const activeForms = await Form.countDocuments({
-      ...formFilter,
-      isActive: true
-    });
-
-    // Get form IDs for the teacher to count only their responses
-    let responseFilter = {};
-    if (req.user.role === "teacher") {
-      const teacherForms = await Form.find(formFilter).select('_id');
-      const formIds = teacherForms.map(f => f._id);
-      responseFilter.form = { $in: formIds };
-    }
-
-    const totalResponses = await Response.countDocuments(responseFilter);
+    // Run all count queries in parallel
+    const [totalForms, activeForms, totalResponses] = await Promise.all([
+      Form.countDocuments(formFilter),
+      Form.countDocuments({ ...formFilter, isActive: true }),
+      (async () => {
+        if (req.user.role === "teacher") {
+          const formIds = await Form.find(formFilter).distinct('_id');
+          return Response.countDocuments({ form: { $in: formIds } });
+        }
+        return Response.countDocuments();
+      })()
+    ]);
 
     res.status(200).json({
       success: true,

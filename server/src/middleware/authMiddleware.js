@@ -12,7 +12,9 @@ export const Protect = async (req, res, next) => {
 
     // console.log("token ", token);
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    const currentUser = await User.findById(decoded.id);
+    const currentUser = await User.findById(decoded.id)
+      .select('_id fullName email role isActive')
+      .lean();
 
     if (!currentUser) {
       const error = new Error("User not found");
@@ -33,7 +35,9 @@ export const ProtectUser = async (req, res, next) => {
 
     if (token) {
       const decoded = jwt.verify(token, process.env.JWT_SECRET);
-      const currentUser = await User.findById(decoded.id);
+      const currentUser = await User.findById(decoded.id)
+        .select('_id fullName email role isActive')
+        .lean();
 
       if (!currentUser) {
         const error = new Error("User not found");

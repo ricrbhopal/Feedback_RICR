@@ -37,17 +37,20 @@ const CreateForm = () => {
     }
   }, []);
 
-  // Auto-save form data to localStorage whenever it changes
+  // Debounced auto-save form data to localStorage whenever it changes
   useEffect(() => {
     if (formTitle || formDescription || questions.length > 0 || selectedTeacher || allowedBatches.length > 0) {
-      const formData = {
-        formTitle,
-        formDescription,
-        questions,
-        selectedTeacher,
-        allowedBatches
-      };
-      localStorage.setItem('createFormDraft', JSON.stringify(formData));
+      const timer = setTimeout(() => {
+        const formData = {
+          formTitle,
+          formDescription,
+          questions,
+          selectedTeacher,
+          allowedBatches
+        };
+        localStorage.setItem('createFormDraft', JSON.stringify(formData));
+      }, 1000); // 1 second debounce
+      return () => clearTimeout(timer);
     }
   }, [formTitle, formDescription, questions, selectedTeacher, allowedBatches]);
 
@@ -65,9 +68,9 @@ const CreateForm = () => {
     const newQuestion = {
       id: Date.now(),
       questionText: "",
-      type: "short",
-      options: [""],
-      maxStars: 5,
+      type: "yes_no",
+      options: ["Yes", "No"],
+      maxStars: 10,
       required: true,
     };
     setQuestions([...questions, newQuestion]);
@@ -157,7 +160,7 @@ const CreateForm = () => {
 
           // Initialize maxStars for star rating type
           if (value === "star_rating" && !q.maxStars) {
-            updated.maxStars = 5;
+            updated.maxStars = 10;
           }
         }
 
@@ -729,7 +732,7 @@ const CreateForm = () => {
                             Maximum Stars
                           </label>
                           <select
-                            value={question.maxStars || 5}
+                            value={question.maxStars || 10}
                             onChange={(e) =>
                               handleQuestionChange(
                                 question.id,

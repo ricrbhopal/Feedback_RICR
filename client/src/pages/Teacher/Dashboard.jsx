@@ -1,9 +1,10 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback, useMemo } from "react";
 import { Link } from "react-router-dom";
 import toast from 'react-hot-toast';
 import QRCodeModal from "../../components/QRCodeModal.jsx";
 import api from "../../config/api.jsx";
 import { useAuth } from "../../context/AuthContext";
+import { formatDate } from "../../utils/formatDate";
 
 const TeacherDashboard = () => {
   const { user } = useAuth();
@@ -18,42 +19,59 @@ const TeacherDashboard = () => {
   const [qrModalOpen, setQrModalOpen] = useState(false);
   const [selectedFormLink, setSelectedFormLink] = useState("");
   const [selectedFormTitle, setSelectedFormTitle] = useState("");
+  const [dateFilter, setDateFilter] = useState(() => new Date().toISOString().split('T')[0]);
 
-  const fetchForms = async () => {
+  const fetchForms = useCallback(async () => {
     try {
       const res = await api.get("/forms");
       setAllForms(res.data.data);
     } catch (error) {
       console.error("Error fetching forms", error);
     }
-  };
+  }, []);
 
-  const fetchAssignedForms = async () => {
+  const fetchAssignedForms = useCallback(async () => {
     try {
       const res = await api.get('/forms?assigned=true');
       setAssignedForms(res.data.data || []);
     } catch (error) {
       console.error('Error fetching assigned forms', error);
     }
-  };
+  }, []);
 
-  const fetchStats = async () => {
+  const fetchStats = useCallback(async () => {
     try {
       const res = await api.get("/dashboard/stats");
       setStats(res.data.data);
     } catch (error) {
       console.error("Error fetching dashboard stats", error);
     }
-  };
+  }, []);
 
   useEffect(() => {
     fetchForms();
     fetchStats();
     fetchAssignedForms();
-  }, []);
+  }, [fetchForms, fetchStats, fetchAssignedForms]);
 
   // Separate forms into created by teacher and assigned to teacher
-  const createdForms = allForms.filter(form => form.createdBy === user?._id);
+  // Compare as strings since createdBy is now populated as an object or could be a string
+  const createdForms = useMemo(() => allForms.filter(form => {
+    const createdById = typeof form.createdBy === 'object' ? form.createdBy?._id : form.createdBy;
+    return String(createdById) === String(user?._id);
+  }), [allForms, user?._id]);
+
+  // Apply date filter to both tables
+  const filterByDate = useCallback((forms) => {
+    if (!dateFilter) return forms;
+    return forms.filter(form => {
+      const formDate = new Date(form.createdAt).toISOString().split('T')[0];
+      return formDate === dateFilter;
+    });
+  }, [dateFilter]);
+
+  const filteredCreatedForms = useMemo(() => filterByDate(createdForms), [createdForms, filterByDate]);
+  const filteredAssignedForms = useMemo(() => filterByDate(assignedForms), [assignedForms, filterByDate]);
 
   const handleCopyLink = (formId) => {
     const link = `${import.meta.env.VITE_FRONTEND_URL}/form/${formId}`;
@@ -179,13 +197,30 @@ const TeacherDashboard = () => {
         </div>
 
         {/* Create Form Button */}
-        <div className="mb-8">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 mb-8">
           <Link
             to="/teacher/create-form"
             className="px-6 py-3 bg-green-600 text-white font-semibold rounded-lg hover:bg-green-700 transition-colors"
           >
             + Create New Form
           </Link>
+          <div className="flex items-center gap-2">
+            <label className="text-sm font-medium text-gray-700">Filter by Date:</label>
+            <input
+              type="date"
+              value={dateFilter}
+              onChange={(e) => setDateFilter(e.target.value)}
+              className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            />
+            {dateFilter && (
+              <button
+                onClick={() => setDateFilter("")}
+                className="px-3 py-2 text-sm text-gray-600 hover:text-gray-900 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
+              >
+                Clear
+              </button>
+            )}
+          </div>
         </div>
 
         {/* Forms Created by Teacher */}
@@ -217,20 +252,20 @@ const TeacherDashboard = () => {
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-200">
-                {createdForms.length === 0 ? (
+                {filteredCreatedForms.length === 0 ? (
                   <tr>
                     <td colSpan="5" className="px-6 py-8 text-center text-gray-500">
                       No forms created yet.
                     </td>
                   </tr>
                 ) : (
-                  createdForms.map((form) => (
+                  filteredCreatedForms.map((form) => (
                     <tr key={form._id} className="hover:bg-gray-50">
                       <td className="px-6 py-4 text-sm text-gray-900">
                         {form.title}
                       </td>
                       <td className="px-6 py-4 text-sm text-gray-600">
-                        {new Date(form.createdAt).toLocaleDateString()}
+                        {formatDate(form.createdAt)}
                       </td>
                       <td className="px-6 py-4 text-sm">
                         <span
@@ -345,20 +380,20 @@ const TeacherDashboard = () => {
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-200">
-                {assignedForms.length === 0 ? (
+                {filteredAssignedForms.length === 0 ? (
                   <tr>
                     <td colSpan="4" className="px-6 py-8 text-center text-gray-500">
                       No forms assigned to you yet.
                     </td>
                   </tr>
                 ) : (
-                  assignedForms.map((form) => (
+                  filteredAssignedForms.map((form) => (
                     <tr key={form._id} className="hover:bg-gray-50">
                       <td className="px-6 py-4 text-sm text-gray-900">
                         {form.title}
                       </td>
                       <td className="px-6 py-4 text-sm text-gray-600">
-                        {new Date(form.createdAt).toLocaleDateString()}
+                        {formatDate(form.createdAt)}
                       </td>
                       <td className="px-6 py-4 text-sm">
                         <span

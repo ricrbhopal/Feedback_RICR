@@ -57,9 +57,9 @@ const EditForm = () => {
     const newQuestion = {
       id: Date.now(),
       questionText: "",
-      type: "short",
-      options: [""],
-      maxStars: 5,
+      type: "yes_no",
+      options: ["Yes", "No"],
+      maxStars: 10,
       required: true,
     };
     setQuestions([...questions, newQuestion]);
@@ -145,7 +145,7 @@ const EditForm = () => {
 
           // Initialize maxStars for star rating type
           if (value === "star_rating" && !q.maxStars) {
-            updated.maxStars = 5;
+            updated.maxStars = 10;
           }
         }
 
@@ -654,7 +654,7 @@ const EditForm = () => {
                             Maximum Stars
                           </label>
                           <select
-                            value={question.maxStars || 5}
+                            value={question.maxStars || 10}
                             onChange={(e) =>
                               handleQuestionChange(
                                 question.id,

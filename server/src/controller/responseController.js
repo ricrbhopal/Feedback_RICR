@@ -1,6 +1,14 @@
 import Response from "../models/responseModel.js";
 import Form from "../models/formModel.js";
 
+// Helper: extract numeric rating from answer (handles both number and {rating, reason} object)
+const extractRating = (answer) => {
+  if (typeof answer === 'object' && answer !== null && answer.rating !== undefined) {
+    return parseInt(answer.rating);
+  }
+  return parseInt(answer);
+};
+
 export const submitResponse = async (req, res) => {
   try {
     //console.log("REQ BODY:", req.body);
@@ -89,21 +97,110 @@ export const getFormResponses = async (req, res, next) => {
     const filter = { form: form._id };
 
     // Add batch filtering if provided
-    const { batches } = req.query;
+    const { batches, page, limit: queryLimit } = req.query;
     if (batches) {
       const batchArray = batches.split(',').map(b => b.trim());
       filter.batch = { $in: batchArray };
     }
 
-    const responses = await Response.find(filter)
-      .populate('form', 'title questions')
-      .sort({ createdAt: -1 });
+    // Pagination
+    const pageNum = parseInt(page) || 1;
+    const limitNum = parseInt(queryLimit) || 100;
+    const skip = (pageNum - 1) * limitNum;
 
-    // Get unique batches for filter dropdown
-    const uniqueBatches = await Response.distinct('batch', { form: form._id });
+    const [responses, totalCount, uniqueBatches] = await Promise.all([
+      Response.find(filter)
+        .populate('form', 'title questions')
+        .sort({ createdAt: -1 })
+        .skip(skip)
+        .limit(limitNum)
+        .lean(),
+      Response.countDocuments(filter),
+      Response.distinct('batch', { form: form._id })
+    ]);
 
-    res.json({ data: responses, batches: uniqueBatches });
+    res.json({
+      data: responses,
+      batches: uniqueBatches,
+      pagination: {
+        page: pageNum,
+        limit: limitNum,
+        total: totalCount,
+        pages: Math.ceil(totalCount / limitNum)
+      }
+    });
   } catch (error) {
     next(error);
+  }
+};
+
+// Get original response data for re-feedback form pre-filling
+export const getReFeedbackData = async (req, res) => {
+  try {
+    const { responseId } = req.params;
+
+    const originalResponse = await Response.findById(responseId)
+      .populate('form', 'title description questions allowedBatches isActive')
+      .lean();
+
+    if (!originalResponse) {
+      return res.status(404).json({ message: "Original response not found" });
+    }
+
+    if (!originalResponse.form.isActive) {
+      return res.status(400).json({ message: "This form is no longer active" });
+    }
+
+    res.json({
+      data: {
+        form: originalResponse.form,
+        studentName: originalResponse.studentName,
+        batch: originalResponse.batch,
+        answers: originalResponse.answers,
+        originalResponseId: originalResponse._id
+      }
+    });
+  } catch (error) {
+    console.error("GET RE-FEEDBACK DATA ERROR:", error);
+    res.status(500).json({ message: error.message });
+  }
+};
+
+// Submit re-feedback response
+export const submitReFeedback = async (req, res) => {
+  try {
+    const { formId, responseId } = req.params;
+    const { studentName, batch, answers } = req.body;
+
+    // Verify form exists and is active
+    const form = await Form.findById(formId);
+    if (!form) {
+      return res.status(404).json({ message: "Form not found" });
+    }
+
+    // Get original response
+    const originalResponse = await Response.findById(responseId).lean();
+    if (!originalResponse) {
+      return res.status(404).json({ message: "Original response not found" });
+    }
+
+    // Create re-feedback response with previous answers preserved
+    const reFeedbackResponse = await Response.create({
+      form: formId,
+      studentName: originalResponse.studentName,
+      batch: originalResponse.batch,
+      answers,
+      isReFeedback: true,
+      originalResponseId: responseId,
+      previousAnswers: originalResponse.answers
+    });
+
+    res.status(201).json({
+      message: "Re-feedback submitted successfully",
+      data: reFeedbackResponse
+    });
+  } catch (error) {
+    console.error("SUBMIT RE-FEEDBACK ERROR:", error);
+    res.status(500).json({ message: error.message });
   }
 };

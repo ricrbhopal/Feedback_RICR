@@ -45,6 +45,23 @@ const responseSchema = new mongoose.Schema(
       required: true
     },
 
+    // Re-Feedback fields
+    isReFeedback: {
+      type: Boolean,
+      default: false
+    },
+
+    originalResponseId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Response",
+      default: null
+    },
+
+    previousAnswers: {
+      type: [answerSchema],
+      default: []
+    },
+
     submittedAt: {
       type: Date,
       default: Date.now
@@ -54,6 +71,11 @@ const responseSchema = new mongoose.Schema(
     timestamps: true
   }
 );
+
+// Indexes for fast lookups
+responseSchema.index({ form: 1, submittedAt: -1 });
+responseSchema.index({ form: 1, studentName: 1, batch: 1, submittedAt: 1 });
+responseSchema.index({ form: 1, batch: 1 });
 
 const Response = mongoose.model("Response", responseSchema);
 

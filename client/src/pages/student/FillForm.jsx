@@ -12,6 +12,7 @@ const FillForm = () => {
   const [formData, setFormData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
+  const [starReasons, setStarReasons] = useState({}); // Track reasons for low star ratings
 
   useEffect(() => {
     const fetchForm = async () => {
@@ -79,6 +80,21 @@ const FillForm = () => {
             return;
           }
         }
+
+        // Validate reason for star ratings < 8
+        if (question.type === "star_rating") {
+          const rating = answers[question._id];
+          if (rating && rating > 0 && rating < 8) {
+            const reason = starReasons[question._id];
+            if (!reason || reason.trim() === "") {
+              toast.error(
+                `Please provide a reason for giving less than 8 stars on: "${question.questionText}"`
+              );
+              setSubmitting(false);
+              return;
+            }
+          }
+        }
       }
     }
 
@@ -103,12 +119,22 @@ const FillForm = () => {
       return;
     }
 
-    // Convert answers object to array format
+    // Convert answers object to array format, include reasons for low star ratings
     const answersArray = Object.entries(answers).map(
-      ([questionId, answer]) => ({
-        questionId,
-        answer,
-      })
+      ([questionId, answer]) => {
+        // For star ratings < 8, store answer as object with reason
+        const question = formData.questions.find(q => q._id === questionId);
+        if (question?.type === "star_rating" && answer > 0 && answer < 8 && starReasons[questionId]) {
+          return {
+            questionId,
+            answer: { rating: answer, reason: starReasons[questionId] },
+          };
+        }
+        return {
+          questionId,
+          answer,
+        };
+      }
     );
 
     try {
@@ -125,6 +151,7 @@ const FillForm = () => {
       setStudentName("");
       setBatch("");
       setAnswers({});
+      setStarReasons({});
       setIsPresent("");
       setSubmitting(false);
     } catch (error) {
@@ -178,7 +205,7 @@ const FillForm = () => {
           <div className="space-y-2">
             {question.options.map((option, index) => (
               <label
-                key={index}
+                key={`${question._id}-opt-${index}`}
                 className="flex items-center gap-3 cursor-pointer"
               >
                 <input
@@ -186,8 +213,8 @@ const FillForm = () => {
                   name={`question-${question._id}`}
                   value={option}
                   checked={answers[question._id] === option}
-                  onChange={(e) =>
-                    handleInputChange(question._id, e.target.value)
+                  onChange={() =>
+                    handleInputChange(question._id, option)
                   }
                   className="w-4 h-4 text-blue-700 border-gray-300 focus:ring-blue-700"
                 />
@@ -235,43 +262,65 @@ const FillForm = () => {
         );
 
       case "star_rating":
-        const maxStars = question.maxStars || 5;
+        const maxStars = question.maxStars || 10;
         const currentRating = answers[question._id] || 0;
         return (
-          <div className="flex items-center gap-2">
-            {[...Array(maxStars)].map((_, index) => {
-              const starValue = index + 1;
-              return (
-                <button
-                  key={index}
-                  type="button"
-                  onClick={() => handleInputChange(question._id, starValue)}
-                  className="focus:outline-none transition-transform hover:scale-110"
-                >
-                  <svg
-                    className={`h-5 w-5 md:w-8 md:h-8 ${
-                      starValue <= currentRating
-                        ? "text-yellow-400 fill-current"
-                        : "text-gray-300"
-                    }`}
-                    xmlns="http://www.w3.org/2000/svg"
-                    viewBox="0 0 24 24"
-                    stroke="currentColor"
-                    strokeWidth="1"
+          <div>
+            <div className="flex items-center gap-2">
+              {[...Array(maxStars)].map((_, index) => {
+                const starValue = index + 1;
+                return (
+                  <button
+                    key={index}
+                    type="button"
+                    onClick={() => handleInputChange(question._id, starValue)}
+                    className="focus:outline-none transition-transform hover:scale-110"
                   >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z"
-                    />
-                  </svg>
-                </button>
-              );
-            })}
-            {currentRating > 0 && (
-              <span className="ml-2 text-sm text-gray-600">
-                {currentRating} / {maxStars}
-              </span>
+                    <svg
+                      className={`h-5 w-5 md:w-8 md:h-8 ${
+                        starValue <= currentRating
+                          ? "text-yellow-400 fill-current"
+                          : "text-gray-300"
+                      }`}
+                      xmlns="http://www.w3.org/2000/svg"
+                      viewBox="0 0 24 24"
+                      stroke="currentColor"
+                      strokeWidth="1"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z"
+                      />
+                    </svg>
+                  </button>
+                );
+              })}
+              {currentRating > 0 && (
+                <span className="ml-2 text-sm text-gray-600">
+                  {currentRating} / {maxStars}
+                </span>
+              )}
+            </div>
+            {currentRating > 0 && currentRating < 8 && (
+              <div className="mt-3 p-3 bg-yellow-50 border border-yellow-200 rounded">
+                <label className="block text-sm font-medium text-yellow-800 mb-2">
+                  ⚠️ Please provide a reason for giving less than 8 stars <span className="text-red-600">*</span>
+                </label>
+                <textarea
+                  value={starReasons[question._id] || ""}
+                  onChange={(e) =>
+                    setStarReasons((prev) => ({
+                      ...prev,
+                      [question._id]: e.target.value,
+                    }))
+                  }
+                  rows="3"
+                  className="w-full px-4 py-2 border border-yellow-300 rounded focus:outline-none focus:ring-2 focus:ring-yellow-500 focus:border-transparent resize-none"
+                  placeholder="Please explain why you gave this rating..."
+                  required
+                />
+              </div>
             )}
           </div>
         );
