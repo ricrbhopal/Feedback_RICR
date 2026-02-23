@@ -71,25 +71,54 @@ const Dashboard = () => {
     return () => abortRef.current?.abort();
   }, [fetchForms, fetchStats, fetchTeachers]);
 
-  // Populate local editable copy whenever modal opens for a form
+  // When approval modal opens, fetch the full form (including questions) by ID
   useEffect(() => {
     if (approvalModalOpen && selectedFormForApproval) {
-      setLocalTitle(selectedFormForApproval.title || "");
-      setLocalDescription(selectedFormForApproval.description || "");
-      setLocalQuestions(
-        (selectedFormForApproval.questions || []).map((q) => ({
-          ...(q._id ? { _id: q._id } : {}),
-          id: q._id || Date.now() + Math.random(),
-          questionText: q.questionText || q.question || "",
-          type: q.type || "short",
-          options: q.options || [],
-          maxStars: q.maxStars || 10,
-          required: q.required !== undefined ? q.required : true,
-        }))
-      );
-      setLocalAllowedBatches(selectedFormForApproval.allowedBatches || []);
+      const fetchFullForm = async () => {
+        try {
+          const res = await api.get(`/forms/${selectedFormForApproval._id}`);
+          const fullForm = res.data.data;
+          setSelectedFormForApproval(fullForm);
+          setLocalTitle(fullForm.title || "");
+          setLocalDescription(fullForm.description || "");
+          setLocalQuestions(
+            (fullForm.questions || []).map((q) => ({
+              ...(q._id ? { _id: q._id } : {}),
+              id: q._id || Date.now() + Math.random(),
+              questionText: q.questionText || q.question || "",
+              type: q.type || "short",
+              options: q.options || [],
+              maxStars: q.maxStars || 10,
+              required: q.required !== undefined ? q.required : true,
+            }))
+          );
+          setLocalAllowedBatches(fullForm.allowedBatches || []);
+        } catch (error) {
+          console.error("Error fetching full form for approval", error);
+          toast.error("Failed to load form details");
+        }
+      };
+      // Only fetch if questions are missing (from the list endpoint)
+      if (!selectedFormForApproval.questions || selectedFormForApproval.questions.length === 0) {
+        fetchFullForm();
+      } else {
+        setLocalTitle(selectedFormForApproval.title || "");
+        setLocalDescription(selectedFormForApproval.description || "");
+        setLocalQuestions(
+          (selectedFormForApproval.questions || []).map((q) => ({
+            ...(q._id ? { _id: q._id } : {}),
+            id: q._id || Date.now() + Math.random(),
+            questionText: q.questionText || q.question || "",
+            type: q.type || "short",
+            options: q.options || [],
+            maxStars: q.maxStars || 10,
+            required: q.required !== undefined ? q.required : true,
+          }))
+        );
+        setLocalAllowedBatches(selectedFormForApproval.allowedBatches || []);
+      }
     }
-  }, [approvalModalOpen, selectedFormForApproval]);
+  }, [approvalModalOpen]);
 
   // Question handlers for inline edit
   const handleAddQuestion = () => {
@@ -197,7 +226,6 @@ const Dashboard = () => {
       required: q.required,
     })),
     allowedBatches: localAllowedBatches,
-    assignedTo: selectedTeacherForForm || undefined,
   });
 
   const handleSaveChanges = async () => {
@@ -214,23 +242,16 @@ const Dashboard = () => {
 
   const handleApproveForm = async () => {
     try {
-      // First, save any inline edits
-      const payload = buildUpdatePayload();
-      await api.put(`/forms/${selectedFormForApproval._id}`, payload);
-      // Then approve
-      const approvePayload = {};
-      if (selectedTeacherForForm)
-        approvePayload.assignedTo = selectedTeacherForForm;
-
+      // Just approve — form auto-assigns to the creator on the backend
       await api.patch(
-        `/forms/${selectedFormForApproval._id}/approve`,
-        approvePayload
+        `/forms/${selectedFormForApproval._id}/approve`
       );
       toast.success("Form approved successfully!");
       setApprovalModalOpen(false);
       setSelectedFormForApproval(null);
       setSelectedTeacherForForm("");
       fetchForms();
+      fetchStats();
     } catch (error) {
       console.error("Error approving form", error);
       toast.error("Error approving form");
@@ -894,23 +915,17 @@ const Dashboard = () => {
                 >
                   Save Changes
                 </button>
-                <div className="flex-1">
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Assign to Teacher (optional)
-                  </label>
-                  <select
-                    value={selectedTeacherForForm}
-                    onChange={(e) => setSelectedTeacherForForm(e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500"
-                  >
-                    <option value="">Select a teacher</option>
-                    {teachers.map((teacher) => (
-                      <option key={teacher._id} value={teacher._id}>
-                        {teacher.fullName}
-                      </option>
-                    ))}
-                  </select>
-                </div>
+              </div>
+
+              {/* Show who created this form */}
+              <div className="mt-3 mb-3 p-3 bg-gray-50 rounded-lg">
+                <p className="text-sm text-gray-600">
+                  <span className="font-medium">Created by:</span>{" "}
+                  {selectedFormForApproval?.createdBy?.fullName || "Teacher"}
+                </p>
+                <p className="text-xs text-gray-500 mt-1">
+                  Form will be auto-assigned to the creator upon approval.
+                </p>
               </div>
 
               <div className="mt-3">
@@ -918,7 +933,7 @@ const Dashboard = () => {
                   onClick={handleApproveForm}
                   className="w-full px-4 py-2 bg-green-600 text-white font-medium rounded hover:bg-green-700"
                 >
-                  Approve & Assign
+                  Approve Form
                 </button>
               </div>
             </div>

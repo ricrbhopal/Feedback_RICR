@@ -131,15 +131,13 @@ export const getAllForms = async (req, res, next) => {
     if (onlyAssigned) {
       // Only teachers should call this; admins can still use it but will get all assigned forms
       forms = await Form.find({ assignedTo: req.user._id, approvalStatus: "approved" })
-        .select('-questions')
         .populate('createdBy', 'fullName email')
         .populate('assignedTo', 'fullName email')
         .sort({ createdAt: -1 })
         .lean();
     } else if (req.user.role === "admin") {
-      // Admin sees all forms (created by admin and pending/approved from teachers)
+      // Admin sees all forms — include questions so admin can review them before approving
       forms = await Form.find()
-        .select('-questions')
         .populate('createdBy', 'fullName email')
         .populate('assignedTo', 'fullName email')
         .sort({ createdAt: -1 })
@@ -154,7 +152,6 @@ export const getAllForms = async (req, res, next) => {
           { assignedTo: req.user._id, approvalStatus: "approved" }
         ]
       })
-        .select('-questions')
         .populate('createdBy', 'fullName email')
         .populate('assignedTo', 'fullName email')
         .sort({ createdAt: -1 })
@@ -305,15 +302,11 @@ export const approveForm = async (req, res, next) => {
       return res.status(400).json({ message: "Form is not pending approval" });
     }
 
-    const { assignedTo } = req.body;
-
-    // If admin didn't provide an assignee, default to the form creator
-    const assignee = assignedTo || form.assignedTo || form.createdBy;
-
+    // Auto-assign to the teacher who created the form
     form.approvalStatus = "approved";
     form.approvedBy = req.user._id;
     form.approvedAt = new Date();
-    form.assignedTo = assignee;
+    form.assignedTo = form.createdBy;
 
     // Do NOT auto-activate on approval; admin will manually activate when ready
     form.isActive = false;
