@@ -12,7 +12,17 @@ const FillForm = () => {
   const [formData, setFormData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
+  const [submitted, setSubmitted] = useState(false);
+  const [submittedName, setSubmittedName] = useState("");
   const [starReasons, setStarReasons] = useState({}); // Track reasons for low star ratings
+
+  // Check if already submitted in this session
+  useEffect(() => {
+    const submittedForms = JSON.parse(sessionStorage.getItem("submittedForms") || "[]");
+    if (submittedForms.includes(formId)) {
+      setSubmitted(true);
+    }
+  }, [formId]);
 
   useEffect(() => {
     const fetchForm = async () => {
@@ -147,12 +157,15 @@ const FillForm = () => {
 
       toast.success("Form submitted successfully!");
 
-      // Clear form
-      setStudentName("");
-      setBatch("");
-      setAnswers({});
-      setStarReasons({});
-      setIsPresent("");
+      // Mark as submitted in sessionStorage
+      const submittedForms = JSON.parse(sessionStorage.getItem("submittedForms") || "[]");
+      if (!submittedForms.includes(formId)) {
+        submittedForms.push(formId);
+        sessionStorage.setItem("submittedForms", JSON.stringify(submittedForms));
+      }
+
+      setSubmittedName(studentName);
+      setSubmitted(true);
       setSubmitting(false);
     } catch (error) {
       console.error("Error submitting form", error);
@@ -162,6 +175,14 @@ const FillForm = () => {
         const errorMessage = error.response.data.message;
         if (errorMessage.includes("already submitted")) {
           toast.error(errorMessage);
+          // Also mark as submitted so they see the success screen
+          const submittedForms = JSON.parse(sessionStorage.getItem("submittedForms") || "[]");
+          if (!submittedForms.includes(formId)) {
+            submittedForms.push(formId);
+            sessionStorage.setItem("submittedForms", JSON.stringify(submittedForms));
+          }
+          setSubmittedName(studentName);
+          setSubmitted(true);
         } else {
           toast.error(errorMessage || "Failed to submit form. Please try again.");
         }
@@ -349,6 +370,45 @@ const FillForm = () => {
           </h2>
           <p className="text-base text-gray-600">
             The form you are looking for does not exist.
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  // Show success screen after submission
+  if (submitted) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center px-4">
+        <div className="max-w-md mx-auto text-center bg-white border border-gray-200 rounded-lg shadow-sm p-8">
+          <div className="mb-4">
+            <svg
+              className="mx-auto h-16 w-16 text-green-500"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
+              />
+            </svg>
+          </div>
+          <h2 className="text-2xl font-bold text-gray-900 mb-3">
+            Feedback Submitted!
+          </h2>
+          {submittedName && (
+            <p className="text-base text-gray-700 mb-2">
+              Thank you, <span className="font-semibold">{submittedName}</span>!
+            </p>
+          )}
+          <p className="text-base text-gray-600 mb-2">
+            Your feedback has been recorded successfully.
+          </p>
+          <p className="text-sm text-gray-500">
+            You have already submitted this form. If you need to update your response, please use the re-feedback link provided by your teacher.
           </p>
         </div>
       </div>

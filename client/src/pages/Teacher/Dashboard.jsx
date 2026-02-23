@@ -4,7 +4,7 @@ import toast from 'react-hot-toast';
 import QRCodeModal from "../../components/QRCodeModal.jsx";
 import api from "../../config/api.jsx";
 import { useAuth } from "../../context/AuthContext";
-import { formatDate } from "../../utils/formatDate";
+import { formatDate, getISTDateOffset, toISTDateString } from "../../utils/formatDate";
 
 const TeacherDashboard = () => {
   const { user } = useAuth();
@@ -19,7 +19,7 @@ const TeacherDashboard = () => {
   const [qrModalOpen, setQrModalOpen] = useState(false);
   const [selectedFormLink, setSelectedFormLink] = useState("");
   const [selectedFormTitle, setSelectedFormTitle] = useState("");
-  const [dateFilter, setDateFilter] = useState(() => new Date().toISOString().split('T')[0]);
+  const [dateFilter, setDateFilter] = useState(""); // empty = show default 3-day range
 
   const fetchForms = useCallback(async () => {
     try {
@@ -63,9 +63,19 @@ const TeacherDashboard = () => {
 
   // Apply date filter to both tables
   const filterByDate = useCallback((forms) => {
-    if (!dateFilter) return forms;
+    // Default 3-day range: yesterday, today, tomorrow (IST)
+    const yesterday = getISTDateOffset(-1);
+    const tomorrow = getISTDateOffset(1);
+
+    if (!dateFilter) {
+      // Show default 3-day range
+      return forms.filter(form => {
+        const formDate = toISTDateString(form.createdAt);
+        return formDate >= yesterday && formDate <= tomorrow;
+      });
+    }
     return forms.filter(form => {
-      const formDate = new Date(form.createdAt).toISOString().split('T')[0];
+      const formDate = toISTDateString(form.createdAt);
       return formDate === dateFilter;
     });
   }, [dateFilter]);
@@ -205,7 +215,9 @@ const TeacherDashboard = () => {
             + Create New Form
           </Link>
           <div className="flex items-center gap-2">
-            <label className="text-sm font-medium text-gray-700">Filter by Date:</label>
+            <label className="text-sm font-medium text-gray-700">
+              {dateFilter ? 'Filter by Date:' : 'Showing 3 days (Yesterday, Today, Tomorrow)'}
+            </label>
             <input
               type="date"
               value={dateFilter}
@@ -217,7 +229,7 @@ const TeacherDashboard = () => {
                 onClick={() => setDateFilter("")}
                 className="px-3 py-2 text-sm text-gray-600 hover:text-gray-900 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
               >
-                Clear
+                Show 3 Days
               </button>
             )}
           </div>

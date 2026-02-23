@@ -36,20 +36,25 @@ export const submitResponse = async (req, res) => {
       }
     }
 
-    // Check if student has already submitted the form today
-    const startOfDay = new Date();
-    startOfDay.setHours(0, 0, 0, 0);
+    // Check if student has already submitted the form today (IST)
+    // IST = UTC+5:30, so IST midnight = previous day 18:30 UTC
+    const nowIST = new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Kolkata' }));
+    const startOfDayIST = new Date(nowIST);
+    startOfDayIST.setHours(0, 0, 0, 0);
+    // Convert IST start-of-day back to UTC for DB query
+    const startUTC = new Date(startOfDayIST.getTime() - (5 * 60 + 30) * 60 * 1000);
     
-    const endOfDay = new Date();
-    endOfDay.setHours(23, 59, 59, 999);
+    const endOfDayIST = new Date(nowIST);
+    endOfDayIST.setHours(23, 59, 59, 999);
+    const endUTC = new Date(endOfDayIST.getTime() - (5 * 60 + 30) * 60 * 1000);
 
     const existingResponse = await Response.findOne({
       form: formId,
       studentName: studentName.trim(),
       batch: batch.trim(),
       submittedAt: {
-        $gte: startOfDay,
-        $lte: endOfDay
+        $gte: startUTC,
+        $lte: endUTC
       }
     });
 
@@ -172,32 +177,49 @@ export const submitReFeedback = async (req, res) => {
     const { formId, responseId } = req.params;
     const { studentName, batch, answers } = req.body;
 
-    // Verify form exists and is active
+    // Verify form exists
     const form = await Form.findById(formId);
     if (!form) {
       return res.status(404).json({ message: "Form not found" });
     }
 
     // Get original response
-    const originalResponse = await Response.findById(responseId).lean();
+    const originalResponse = await Response.findById(responseId);
     if (!originalResponse) {
       return res.status(404).json({ message: "Original response not found" });
     }
 
-    // Create re-feedback response with previous answers preserved
-    const reFeedbackResponse = await Response.create({
-      form: formId,
-      studentName: originalResponse.studentName,
-      batch: originalResponse.batch,
-      answers,
-      isReFeedback: true,
-      originalResponseId: responseId,
-      previousAnswers: originalResponse.answers
+    // Enforce yes_no constraint: cannot change Yes to No
+    const originalAnswerMap = {};
+    originalResponse.answers.forEach((a) => {
+      originalAnswerMap[a.questionId.toString()] = a.answer;
     });
 
-    res.status(201).json({
+    for (const ans of answers) {
+      const question = form.questions.find(
+        (q) => q._id.toString() === ans.questionId
+      );
+      if (question && question.type === "yes_no") {
+        const origAns = originalAnswerMap[ans.questionId];
+        if (origAns === "Yes" && ans.answer !== "Yes") {
+          return res.status(400).json({
+            message: `Cannot change "Yes" answer back to "No" for: "${question.questionText}"`
+          });
+        }
+      }
+    }
+
+    // Store previous answers for history, then UPDATE the original response
+    originalResponse.previousAnswers = originalResponse.answers;
+    originalResponse.answers = answers;
+    originalResponse.isReFeedback = true;
+    originalResponse.submittedAt = new Date();
+
+    await originalResponse.save();
+
+    res.status(200).json({
       message: "Re-feedback submitted successfully",
-      data: reFeedbackResponse
+      data: originalResponse
     });
   } catch (error) {
     console.error("SUBMIT RE-FEEDBACK ERROR:", error);

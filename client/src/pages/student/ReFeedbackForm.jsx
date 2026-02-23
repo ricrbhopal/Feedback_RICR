@@ -231,7 +231,6 @@ const ReFeedbackForm = () => {
         );
 
       case "mcq":
-      case "yes_no":
         return (
           <div>
             {renderOriginalBadge()}
@@ -255,6 +254,49 @@ const ReFeedbackForm = () => {
             </div>
           </div>
         );
+
+      case "yes_no": {
+        const origYesNo = getOriginalAnswer(question._id);
+        const isLockedYes = origYesNo === "Yes";
+        return (
+          <div>
+            {renderOriginalBadge()}
+            {isLockedYes && (
+              <div className="mb-2 p-2 bg-green-50 border border-green-200 rounded text-sm text-green-800">
+                ✅ You already answered "Yes" — this cannot be changed.
+              </div>
+            )}
+            <div className="space-y-2">
+              {question.options.map((option, index) => {
+                const isDisabled = isLockedYes;
+                return (
+                  <label
+                    key={`${question._id}-opt-${index}`}
+                    className={`flex items-center gap-3 ${
+                      isDisabled
+                        ? "cursor-not-allowed opacity-60"
+                        : "cursor-pointer"
+                    }`}
+                  >
+                    <input
+                      type="radio"
+                      name={`question-${question._id}`}
+                      value={option}
+                      checked={answers[question._id] === option}
+                      onChange={() => {
+                        if (!isDisabled) handleInputChange(question._id, option);
+                      }}
+                      disabled={isDisabled}
+                      className="w-4 h-4 text-orange-600 border-gray-300 focus:ring-orange-600"
+                    />
+                    <span className="text-sm text-gray-700">{option}</span>
+                  </label>
+                );
+              })}
+            </div>
+          </div>
+        );
+      }
 
       case "checkbox":
         return (

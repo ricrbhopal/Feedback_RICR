@@ -35,7 +35,7 @@ const PageLoader = () => (
 
 const App = () => {
   // Control max screen width here
-  const MAX_WIDTH = "max-w-9xl"; // Change to max-w-6xl, max-w-screen-xl, etc.
+  const MAX_WIDTH = "max-w-7xl"; // Change to max-w-6xl, max-w-screen-xl, etc.
   const [appVersion, setAppVersion] = useState(null);
   const [updateAvailable, setUpdateAvailable] = useState(false);
 
@@ -97,7 +97,14 @@ const App = () => {
   return (
     <AuthProvider>
       <BrowserRouter>
-        <Toaster position="top-center" />
+        <Toaster
+          position="top-center"
+          toastOptions={{
+            duration: 3000,
+            success: { duration: 3000 },
+            error: { duration: 4000 },
+          }}
+        />
         <Navbar />    
         <div className={`${MAX_WIDTH} mx-auto w-full`}>
           <Suspense fallback={<PageLoader />}>

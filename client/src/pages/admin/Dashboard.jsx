@@ -5,7 +5,7 @@ import QRCodeModal from "../../components/QRCodeModal.jsx";
 import api from "../../config/api.jsx";
 import { useEffect, useRef } from "react";
 import { useAuth } from "../../context/AuthContext";
-import { formatDate } from "../../utils/formatDate";
+import { formatDate, getISTDateOffset, toISTDateString } from "../../utils/formatDate";
 
 const Dashboard = () => {
   const { user } = useAuth();
@@ -32,7 +32,7 @@ const Dashboard = () => {
   const [localAllowedBatches, setLocalAllowedBatches] = useState([]);
   const [localBatchInput, setLocalBatchInput] = useState("");
   const [selectedTeacher, setSelectedTeacher] = useState("all");
-  const [dateFilter, setDateFilter] = useState(() => new Date().toISOString().split('T')[0]);
+  const [dateFilter, setDateFilter] = useState(""); // empty = show default 3-day range
   const abortRef = useRef(null);
 
   const fetchForms = useCallback(async () => {
@@ -383,6 +383,10 @@ const Dashboard = () => {
 
   // Filtered forms for "All Forms" table — by teacher and date
   const filteredForms = useMemo(() => {
+    // Default 3-day range: yesterday, today, tomorrow (IST)
+    const yesterday = getISTDateOffset(-1);
+    const tomorrow = getISTDateOffset(1);
+
     return forms.filter(form => {
       // Teacher filter
       if (selectedTeacher !== "all") {
@@ -390,9 +394,13 @@ const Dashboard = () => {
         if (String(createdById) !== String(selectedTeacher)) return false;
       }
       // Date filter
+      const formDate = toISTDateString(form.createdAt);
       if (dateFilter) {
-        const formDate = new Date(form.createdAt).toISOString().split('T')[0];
+        // Specific date selected
         if (formDate !== dateFilter) return false;
+      } else {
+        // Default: show yesterday, today, tomorrow
+        if (formDate < yesterday || formDate > tomorrow) return false;
       }
       return true;
     });
@@ -543,7 +551,9 @@ const Dashboard = () => {
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
               <h2 className="text-xl font-semibold text-gray-900">All Forms</h2>
               <div className="flex items-center gap-2">
-                <label className="text-sm font-medium text-gray-700">Date:</label>
+                <label className="text-sm font-medium text-gray-700">
+                  {dateFilter ? 'Date:' : 'Showing 3 days (Yesterday, Today, Tomorrow)'}
+                </label>
                 <input
                   type="date"
                   value={dateFilter}
@@ -555,7 +565,7 @@ const Dashboard = () => {
                     onClick={() => setDateFilter("")}
                     className="px-3 py-1.5 text-sm text-gray-600 hover:text-gray-900 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
                   >
-                    Clear
+                    Show 3 Days
                   </button>
                 )}
               </div>
@@ -718,7 +728,7 @@ const Dashboard = () => {
       {/* Approval Modal */}
       {approvalModalOpen && selectedFormForApproval && (
         <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-lg shadow-xl p-8 max-w-8xl h-[90vh] w-full overflow-y-auto">
+          <div className="bg-white rounded-lg shadow-xl p-8 max-w-7xl h-[90vh] w-full overflow-y-auto">
             <h3 className="text-xl font-bold text-gray-900 mb-4">
               Review Form: {selectedFormForApproval.title}
             </h3>
