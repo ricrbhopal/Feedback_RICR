@@ -5,10 +5,9 @@ import express from "express";
 import morgan from "morgan";
 import compression from "compression";
 import AuthRouter from "./src/routes/authRouter.js";
-import FormRouter from "./src/routes/formRouter.js"
+import FormRouter from "./src/routes/formRouter.js";
 import ResponseRouter from "./src/routes/responseRouter.js";
 import dashboardRouter from "./src/routes/dashboardRouter.js";
-
 
 import connectDB from "./src/config/db.js";
 import cors from "cors";
@@ -23,28 +22,34 @@ const app = express();
 
 app.use(
   cors({
-    origin: ["http://localhost:5173", "https://feedback.ricr.in"],
+    origin: ["http://localhost:5173", "https://feedbackold.ricr.in"],
 
     credentials: true,
-  })
+  }),
 );
 
 app.use(express.json());
 app.use(cookieParser());
 app.use(compression());
-app.use(morgan("dev"))
+app.use(morgan("dev"));
 
 // Cache busting middleware
 app.use((req, res, next) => {
   // No caching for HTML files and API
-  if (req.url.endsWith('.html') || req.url.startsWith('/auth') || req.url.startsWith('/forms') || req.url.startsWith('/responses') || req.url.startsWith('/dashboard')) {
-    res.set('Cache-Control', 'no-cache, no-store, must-revalidate');
-    res.set('Pragma', 'no-cache');
-    res.set('Expires', '0');
-  } 
+  if (
+    req.url.endsWith(".html") ||
+    req.url.startsWith("/auth") ||
+    req.url.startsWith("/forms") ||
+    req.url.startsWith("/responses") ||
+    req.url.startsWith("/dashboard")
+  ) {
+    res.set("Cache-Control", "no-cache, no-store, must-revalidate");
+    res.set("Pragma", "no-cache");
+    res.set("Expires", "0");
+  }
   // Long cache for versioned assets (with hash)
   else if (req.url.match(/\.[a-f0-9]{8}\./i)) {
-    res.set('Cache-Control', 'public, max-age=31536000, immutable');
+    res.set("Cache-Control", "public, max-age=31536000, immutable");
   }
   next();
 });
@@ -53,7 +58,6 @@ app.use("/auth", AuthRouter);
 app.use("/forms", FormRouter);
 app.use("/responses", ResponseRouter);
 app.use("/dashboard", dashboardRouter);
-
 
 app.get("/", (req, res) => {
   res.json({ message: "Welcome to the server!" });
