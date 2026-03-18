@@ -5,7 +5,7 @@ import QRCodeModal from "../../components/QRCodeModal.jsx";
 import api from "../../config/api.jsx";
 import { useEffect, useRef } from "react";
 import { useAuth } from "../../context/AuthContext";
-import { formatDate, getISTDateOffset, toISTDateString } from "../../utils/formatDate";
+import { formatDate } from "../../utils/formatDate";
 
 const Dashboard = () => {
   const { user } = useAuth();
@@ -32,7 +32,6 @@ const Dashboard = () => {
   const [localAllowedBatches, setLocalAllowedBatches] = useState([]);
   const [localBatchInput, setLocalBatchInput] = useState("");
   const [selectedTeacher, setSelectedTeacher] = useState("all");
-  const [dateFilter, setDateFilter] = useState(""); // empty = show default 3-day range
   const abortRef = useRef(null);
 
   const fetchForms = useCallback(async () => {
@@ -381,30 +380,17 @@ const Dashboard = () => {
     (form) => form.approvalStatus === "rejected"
   ), [forms]);
 
-  // Filtered forms for "All Forms" table — by teacher and date
+  // Filtered forms for "All Forms" table — by teacher only
   const filteredForms = useMemo(() => {
-    // Default 3-day range: yesterday, today, tomorrow (IST)
-    const yesterday = getISTDateOffset(-1);
-    const tomorrow = getISTDateOffset(1);
-
     return forms.filter(form => {
       // Teacher filter
       if (selectedTeacher !== "all") {
         const createdById = typeof form.createdBy === 'object' ? form.createdBy?._id : form.createdBy;
         if (String(createdById) !== String(selectedTeacher)) return false;
       }
-      // Date filter
-      const formDate = toISTDateString(form.createdAt);
-      if (dateFilter) {
-        // Specific date selected
-        if (formDate !== dateFilter) return false;
-      } else {
-        // Default: show yesterday, today, tomorrow
-        if (formDate < yesterday || formDate > tomorrow) return false;
-      }
       return true;
     });
-  }, [forms, selectedTeacher, dateFilter]);
+  }, [forms, selectedTeacher]);
 
   return (
     <div className="min-h-screen bg-gray-50 py-8 px-4">
@@ -550,25 +536,6 @@ const Dashboard = () => {
           <div className="px-6 py-4 border-b border-gray-200">
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
               <h2 className="text-xl font-semibold text-gray-900">All Forms</h2>
-              <div className="flex items-center gap-2">
-                <label className="text-sm font-medium text-gray-700">
-                  {dateFilter ? 'Date:' : 'Showing 3 days (Yesterday, Today, Tomorrow)'}
-                </label>
-                <input
-                  type="date"
-                  value={dateFilter}
-                  onChange={(e) => setDateFilter(e.target.value)}
-                  className="px-3 py-1.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                />
-                {dateFilter && (
-                  <button
-                    onClick={() => setDateFilter("")}
-                    className="px-3 py-1.5 text-sm text-gray-600 hover:text-gray-900 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
-                  >
-                    Show 3 Days
-                  </button>
-                )}
-              </div>
             </div>
             {/* Teacher Name Tabs */}
             <div className="flex flex-wrap gap-2 mt-4">
@@ -622,7 +589,7 @@ const Dashboard = () => {
                 {filteredForms.length === 0 ? (
                   <tr>
                     <td colSpan="5" className="px-6 py-8 text-center text-gray-500">
-                      No forms found for the selected filters.
+                      No forms found for the selected teacher.
                     </td>
                   </tr>
                 ) : (

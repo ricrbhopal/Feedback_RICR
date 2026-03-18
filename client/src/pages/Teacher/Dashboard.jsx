@@ -4,7 +4,7 @@ import toast from 'react-hot-toast';
 import QRCodeModal from "../../components/QRCodeModal.jsx";
 import api from "../../config/api.jsx";
 import { useAuth } from "../../context/AuthContext";
-import { formatDate, getISTDateOffset, toISTDateString } from "../../utils/formatDate";
+import { formatDate } from "../../utils/formatDate";
 
 const TeacherDashboard = () => {
   const { user } = useAuth();
@@ -19,7 +19,6 @@ const TeacherDashboard = () => {
   const [qrModalOpen, setQrModalOpen] = useState(false);
   const [selectedFormLink, setSelectedFormLink] = useState("");
   const [selectedFormTitle, setSelectedFormTitle] = useState("");
-  const [dateFilter, setDateFilter] = useState(""); // empty = show default 3-day range
 
   const fetchForms = useCallback(async () => {
     try {
@@ -61,27 +60,11 @@ const TeacherDashboard = () => {
     return String(createdById) === String(user?._id);
   }), [allForms, user?._id]);
 
-  // Apply date filter to both tables
-  const filterByDate = useCallback((forms) => {
-    // Default 3-day range: yesterday, today, tomorrow (IST)
-    const yesterday = getISTDateOffset(-1);
-    const tomorrow = getISTDateOffset(1);
+  // Use all forms without date filtering
+  const filteredCreatedForms = createdForms;
+  const filteredAssignedForms = assignedForms;
 
-    if (!dateFilter) {
-      // Show default 3-day range
-      return forms.filter(form => {
-        const formDate = toISTDateString(form.createdAt);
-        return formDate >= yesterday && formDate <= tomorrow;
-      });
-    }
-    return forms.filter(form => {
-      const formDate = toISTDateString(form.createdAt);
-      return formDate === dateFilter;
-    });
-  }, [dateFilter]);
 
-  const filteredCreatedForms = useMemo(() => filterByDate(createdForms), [createdForms, filterByDate]);
-  const filteredAssignedForms = useMemo(() => filterByDate(assignedForms), [assignedForms, filterByDate]);
 
   const handleCopyLink = (formId) => {
     const link = `${import.meta.env.VITE_FRONTEND_URL}/form/${formId}`;
@@ -214,25 +197,6 @@ const TeacherDashboard = () => {
           >
             + Create New Form
           </Link>
-          <div className="flex items-center gap-2">
-            <label className="text-sm font-medium text-gray-700">
-              {dateFilter ? 'Filter by Date:' : 'Showing 3 days (Yesterday, Today, Tomorrow)'}
-            </label>
-            <input
-              type="date"
-              value={dateFilter}
-              onChange={(e) => setDateFilter(e.target.value)}
-              className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-            />
-            {dateFilter && (
-              <button
-                onClick={() => setDateFilter("")}
-                className="px-3 py-2 text-sm text-gray-600 hover:text-gray-900 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
-              >
-                Show 3 Days
-              </button>
-            )}
-          </div>
         </div>
 
         {/* Forms Created by Teacher */}
