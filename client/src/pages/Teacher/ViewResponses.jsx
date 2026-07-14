@@ -869,6 +869,22 @@ const ViewResponses = () => {
                   </option>
                 ))}
               </select>
+              {availableBatches.length > 1 && (
+                <button
+                  onClick={() => setSelectedBatches([...availableBatches])}
+                  className="px-4 py-2 bg-indigo-600 text-white text-sm font-medium rounded hover:bg-indigo-700 transition-colors"
+                >
+                  View All Batches
+                </button>
+              )}
+              {selectedBatches.length > 0 && (
+                <button
+                  onClick={() => setSelectedBatches([])}
+                  className="px-4 py-2 bg-gray-200 text-gray-700 text-sm font-medium rounded hover:bg-gray-300 transition-colors"
+                >
+                  Clear All
+                </button>
+              )}
             </div>
             
             {/* Selected Batches Tags */}

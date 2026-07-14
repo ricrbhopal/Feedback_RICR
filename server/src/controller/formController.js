@@ -122,43 +122,54 @@ export const getFormById = async (req, res, next) => {
 
 export const getAllForms = async (req, res, next) => {
   try {
-    // Support query param ?assigned=true to return only forms assigned to the
-    // authenticated teacher (approved forms assigned to them). This allows
-    // the frontend to fetch assigned forms directly from the backend.
     const onlyAssigned = req.query.assigned === 'true';
+    const onlyMine = req.query.mine === 'true';
+    const page = Math.max(1, parseInt(req.query.page) || 1);
+    const limit = Math.min(100, Math.max(1, parseInt(req.query.limit) || 25));
+    const skip = (page - 1) * limit;
+    const teacherId = req.query.teacherId;
+    const approvalStatus = req.query.approvalStatus;
 
-    let forms;
+    let query = {};
+
     if (onlyAssigned) {
-      // Only teachers should call this; admins can still use it but will get all assigned forms
-      forms = await Form.find({ assignedTo: req.user._id, approvalStatus: "approved" })
-        .populate('createdBy', 'fullName email')
-        .populate('assignedTo', 'fullName email')
-        .sort({ createdAt: -1 })
-        .lean();
+      // Forms assigned to the authenticated teacher that are approved
+      query = { assignedTo: req.user._id, approvalStatus: "approved" };
     } else if (req.user.role === "admin") {
-      // Admin sees all forms — include questions so admin can review them before approving
-      forms = await Form.find()
-        .populate('createdBy', 'fullName email')
-        .populate('assignedTo', 'fullName email')
-        .sort({ createdAt: -1 })
-        .lean();
+      // Admin sees all forms; optionally filtered by teacher or approvalStatus
+      if (teacherId && teacherId !== 'all') query.createdBy = teacherId;
+      if (approvalStatus) query.approvalStatus = approvalStatus;
+    } else if (onlyMine) {
+      // Teacher fetching only forms they created
+      query = { createdBy: req.user._id };
     } else {
-      // Teacher sees:
-      // 1. Forms created by them
-      // 2. Forms assigned to them by admin that are approved
-      forms = await Form.find({
+      // Teacher sees forms they created OR forms assigned to them
+      query = {
         $or: [
           { createdBy: req.user._id },
           { assignedTo: req.user._id, approvalStatus: "approved" }
         ]
-      })
-        .populate('createdBy', 'fullName email')
-        .populate('assignedTo', 'fullName email')
-        .sort({ createdAt: -1 })
-        .lean();
+      };
     }
 
-    res.json({ data: forms });
+    const total = await Form.countDocuments(query);
+    const forms = await Form.find(query)
+      .populate('createdBy', 'fullName email')
+      .populate('assignedTo', 'fullName email')
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(limit)
+      .lean();
+
+    res.json({
+      data: forms,
+      pagination: {
+        total,
+        page,
+        limit,
+        totalPages: Math.max(1, Math.ceil(total / limit))
+      }
+    });
   } catch (error) {
     next(error);
   }

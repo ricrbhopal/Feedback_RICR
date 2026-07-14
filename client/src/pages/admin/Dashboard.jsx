@@ -1,7 +1,8 @@
-import React, { useState, useMemo, useCallback } from "react";
+import React, { useState, useCallback } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import toast from "react-hot-toast";
 import QRCodeModal from "../../components/QRCodeModal.jsx";
+import Pagination from "../../components/Pagination.jsx";
 import api from "../../config/api.jsx";
 import { useEffect, useRef } from "react";
 import { useAuth } from "../../context/AuthContext";
@@ -17,6 +18,9 @@ const Dashboard = () => {
   });
 
   const [forms, setForms] = useState([]);
+  const [pendingForms, setPendingForms] = useState([]);
+  const [totalForms, setTotalForms] = useState(0);
+  const [totalPages, setTotalPages] = useState(1);
   const [qrModalOpen, setQrModalOpen] = useState(false);
   const [selectedFormLink, setSelectedFormLink] = useState("");
   const [selectedFormTitle, setSelectedFormTitle] = useState("");
@@ -32,16 +36,32 @@ const Dashboard = () => {
   const [localAllowedBatches, setLocalAllowedBatches] = useState([]);
   const [localBatchInput, setLocalBatchInput] = useState("");
   const [selectedTeacher, setSelectedTeacher] = useState("all");
+  const [currentPage, setCurrentPage] = useState(1);
   const abortRef = useRef(null);
+
+  const PAGE_SIZE = 25;
 
   const fetchForms = useCallback(async () => {
     try {
       abortRef.current?.abort();
       abortRef.current = new AbortController();
-      const res = await api.get("/forms", { signal: abortRef.current.signal });
+      const params = { page: currentPage, limit: PAGE_SIZE };
+      if (selectedTeacher !== 'all') params.teacherId = selectedTeacher;
+      const res = await api.get("/forms", { params, signal: abortRef.current.signal });
       setForms(res.data.data);
+      setTotalForms(res.data.pagination.total);
+      setTotalPages(res.data.pagination.totalPages);
     } catch (error) {
       if (error.name !== 'CanceledError') console.error("Error fetching forms", error);
+    }
+  }, [currentPage, selectedTeacher]);
+
+  const fetchPendingForms = useCallback(async () => {
+    try {
+      const res = await api.get("/forms", { params: { approvalStatus: 'pending', limit: 1000 } });
+      setPendingForms(res.data.data);
+    } catch (error) {
+      console.error("Error fetching pending forms", error);
     }
   }, []);
 
@@ -64,11 +84,15 @@ const Dashboard = () => {
   }, []);
 
   useEffect(() => {
-    fetchForms();
     fetchStats();
     fetchTeachers();
+    fetchPendingForms();
+  }, [fetchStats, fetchTeachers, fetchPendingForms]);
+
+  useEffect(() => {
+    fetchForms();
     return () => abortRef.current?.abort();
-  }, [fetchForms, fetchStats, fetchTeachers]);
+  }, [fetchForms]);
 
   // When approval modal opens, fetch the full form (including questions) by ID
   useEffect(() => {
@@ -233,6 +257,7 @@ const Dashboard = () => {
       await api.put(`/forms/${selectedFormForApproval._id}`, payload);
       toast.success("Form updated successfully");
       fetchForms();
+      fetchPendingForms();
     } catch (error) {
       console.error("Error saving changes", error);
       toast.error("Error saving changes");
@@ -251,6 +276,7 @@ const Dashboard = () => {
       setSelectedTeacherForForm("");
       fetchForms();
       fetchStats();
+      fetchPendingForms();
     } catch (error) {
       console.error("Error approving form", error);
       toast.error("Error approving form");
@@ -273,6 +299,7 @@ const Dashboard = () => {
                   toast.success("Form deleted successfully");
                   fetchForms();
                   fetchStats();
+                  fetchPendingForms();
                 } catch (error) {
                   console.error("Error deleting form", error);
                   toast.error("Error deleting form");
@@ -332,6 +359,7 @@ const Dashboard = () => {
       setSelectedFormForApproval(null);
       setRejectionReason("");
       fetchForms();
+      fetchPendingForms();
     } catch (error) {
       console.error("Error rejecting form", error);
       toast.error("Error rejecting form");
@@ -370,27 +398,7 @@ const Dashboard = () => {
     }
   };
 
-  const pendingForms = useMemo(() => forms.filter(
-    (form) => form.approvalStatus === "pending"
-  ), [forms]);
-  const approvedForms = useMemo(() => forms.filter(
-    (form) => form.approvalStatus === "approved"
-  ), [forms]);
-  const rejectedForms = useMemo(() => forms.filter(
-    (form) => form.approvalStatus === "rejected"
-  ), [forms]);
-
-  // Filtered forms for "All Forms" table — by teacher only
-  const filteredForms = useMemo(() => {
-    return forms.filter(form => {
-      // Teacher filter
-      if (selectedTeacher !== "all") {
-        const createdById = typeof form.createdBy === 'object' ? form.createdBy?._id : form.createdBy;
-        if (String(createdById) !== String(selectedTeacher)) return false;
-      }
-      return true;
-    });
-  }, [forms, selectedTeacher]);
+  // pendingForms, totalForms, and totalPages are now server-driven states
 
   return (
     <div className="min-h-screen bg-gray-50 py-8 px-4">
@@ -536,11 +544,16 @@ const Dashboard = () => {
           <div className="px-6 py-4 border-b border-gray-200">
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
               <h2 className="text-xl font-semibold text-gray-900">All Forms</h2>
+              {totalForms > 0 && (
+                <p className="text-sm text-gray-500">
+                  Showing {Math.min((currentPage - 1) * PAGE_SIZE + 1, totalForms)}–{Math.min(currentPage * PAGE_SIZE, totalForms)} of {totalForms} forms
+                </p>
+              )}
             </div>
             {/* Teacher Name Tabs */}
             <div className="flex flex-wrap gap-2 mt-4">
               <button
-                onClick={() => setSelectedTeacher("all")}
+                onClick={() => { setSelectedTeacher("all"); setCurrentPage(1); }}
                 className={`px-4 py-2 text-sm font-medium rounded-lg transition-colors ${
                   selectedTeacher === "all"
                     ? "bg-blue-600 text-white"
@@ -552,7 +565,7 @@ const Dashboard = () => {
               {teachers.map((teacher) => (
                 <button
                   key={teacher._id}
-                  onClick={() => setSelectedTeacher(teacher._id)}
+                  onClick={() => { setSelectedTeacher(teacher._id); setCurrentPage(1); }}
                   className={`px-4 py-2 text-sm font-medium rounded-lg transition-colors ${
                     selectedTeacher === teacher._id
                       ? "bg-blue-600 text-white"
@@ -586,14 +599,14 @@ const Dashboard = () => {
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-200">
-                {filteredForms.length === 0 ? (
+                {forms.length === 0 ? (
                   <tr>
                     <td colSpan="5" className="px-6 py-8 text-center text-gray-500">
                       No forms found for the selected teacher.
                     </td>
                   </tr>
                 ) : (
-                  filteredForms.map((form) => (
+                  forms.map((form) => (
                   <tr key={form._id} className="hover:bg-gray-50">
                     <td className="px-6 py-4 text-sm text-gray-900">
                       {form.title}
@@ -689,6 +702,11 @@ const Dashboard = () => {
               </tbody>
             </table>
           </div>
+          <Pagination
+            currentPage={currentPage}
+            totalPages={totalPages}
+            onPageChange={setCurrentPage}
+          />
         </div>
       </div>
 

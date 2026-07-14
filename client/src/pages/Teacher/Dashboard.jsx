@@ -1,7 +1,8 @@
-import React, { useState, useEffect, useCallback, useMemo } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { Link } from "react-router-dom";
 import toast from 'react-hot-toast';
 import QRCodeModal from "../../components/QRCodeModal.jsx";
+import Pagination from "../../components/Pagination.jsx";
 import api from "../../config/api.jsx";
 import { useAuth } from "../../context/AuthContext";
 import { formatDate } from "../../utils/formatDate";
@@ -14,29 +15,40 @@ const TeacherDashboard = () => {
     totalResponses: 0,
   });
 
-  const [allForms, setAllForms] = useState([]);
+  const [createdForms, setCreatedForms] = useState([]);
   const [assignedForms, setAssignedForms] = useState([]);
+  const [createdTotal, setCreatedTotal] = useState(0);
+  const [assignedTotal, setAssignedTotal] = useState(0);
+  const [createdTotalPages, setCreatedTotalPages] = useState(1);
+  const [assignedTotalPages, setAssignedTotalPages] = useState(1);
+  const [createdPage, setCreatedPage] = useState(1);
+  const [assignedPage, setAssignedPage] = useState(1);
+  const PAGE_SIZE = 25;
   const [qrModalOpen, setQrModalOpen] = useState(false);
   const [selectedFormLink, setSelectedFormLink] = useState("");
   const [selectedFormTitle, setSelectedFormTitle] = useState("");
 
-  const fetchForms = useCallback(async () => {
+  const fetchCreatedForms = useCallback(async () => {
     try {
-      const res = await api.get("/forms");
-      setAllForms(res.data.data);
+      const res = await api.get("/forms", { params: { mine: 'true', page: createdPage, limit: PAGE_SIZE } });
+      setCreatedForms(res.data.data);
+      setCreatedTotal(res.data.pagination.total);
+      setCreatedTotalPages(res.data.pagination.totalPages);
     } catch (error) {
       console.error("Error fetching forms", error);
     }
-  }, []);
+  }, [createdPage]);
 
   const fetchAssignedForms = useCallback(async () => {
     try {
-      const res = await api.get('/forms?assigned=true');
+      const res = await api.get('/forms', { params: { assigned: 'true', page: assignedPage, limit: PAGE_SIZE } });
       setAssignedForms(res.data.data || []);
+      setAssignedTotal(res.data.pagination.total);
+      setAssignedTotalPages(res.data.pagination.totalPages);
     } catch (error) {
       console.error('Error fetching assigned forms', error);
     }
-  }, []);
+  }, [assignedPage]);
 
   const fetchStats = useCallback(async () => {
     try {
@@ -48,21 +60,16 @@ const TeacherDashboard = () => {
   }, []);
 
   useEffect(() => {
-    fetchForms();
     fetchStats();
+  }, [fetchStats]);
+
+  useEffect(() => {
+    fetchCreatedForms();
+  }, [fetchCreatedForms]);
+
+  useEffect(() => {
     fetchAssignedForms();
-  }, [fetchForms, fetchStats, fetchAssignedForms]);
-
-  // Separate forms into created by teacher and assigned to teacher
-  // Compare as strings since createdBy is now populated as an object or could be a string
-  const createdForms = useMemo(() => allForms.filter(form => {
-    const createdById = typeof form.createdBy === 'object' ? form.createdBy?._id : form.createdBy;
-    return String(createdById) === String(user?._id);
-  }), [allForms, user?._id]);
-
-  // Use all forms without date filtering
-  const filteredCreatedForms = createdForms;
-  const filteredAssignedForms = assignedForms;
+  }, [fetchAssignedForms]);
 
 
 
@@ -83,7 +90,7 @@ const TeacherDashboard = () => {
     try {
       const res = await api.patch(`/forms/${formId}/toggle-status`);
       toast.success(res.data.message);
-      fetchForms();
+      fetchCreatedForms();
       fetchStats();
       fetchAssignedForms();
     } catch (error) {
@@ -202,9 +209,16 @@ const TeacherDashboard = () => {
         {/* Forms Created by Teacher */}
         <div className="bg-white border border-gray-200 rounded-lg overflow-hidden mb-8">
           <div className="px-6 py-4 border-b border-gray-200">
-            <h2 className="text-xl font-semibold text-gray-900">
-              Forms I Created
-            </h2>
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+              <h2 className="text-xl font-semibold text-gray-900">
+                Forms I Created
+              </h2>
+              {createdTotal > 0 && (
+                <p className="text-sm text-gray-500">
+                  Showing {Math.min((createdPage - 1) * PAGE_SIZE + 1, createdTotal)}–{Math.min(createdPage * PAGE_SIZE, createdTotal)} of {createdTotal} forms
+                </p>
+              )}
+            </div>
           </div>
           <div className="overflow-x-auto">
             <table className="w-full">
@@ -228,14 +242,14 @@ const TeacherDashboard = () => {
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-200">
-                {filteredCreatedForms.length === 0 ? (
+                {createdForms.length === 0 ? (
                   <tr>
                     <td colSpan="5" className="px-6 py-8 text-center text-gray-500">
                       No forms created yet.
                     </td>
                   </tr>
                 ) : (
-                  filteredCreatedForms.map((form) => (
+                  createdForms.map((form) => (
                     <tr key={form._id} className="hover:bg-gray-50">
                       <td className="px-6 py-4 text-sm text-gray-900">
                         {form.title}
@@ -328,14 +342,26 @@ const TeacherDashboard = () => {
               </tbody>
             </table>
           </div>
+          <Pagination
+            currentPage={createdPage}
+            totalPages={createdTotalPages}
+            onPageChange={setCreatedPage}
+          />
         </div>
 
         {/* Assigned forms table */}
         <div className="bg-white border border-gray-200 rounded-lg overflow-hidden">
           <div className="px-6 py-4 border-b border-gray-200">
-            <h2 className="text-xl font-semibold text-gray-900">
-              Forms Assigned to Me
-            </h2>
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+              <h2 className="text-xl font-semibold text-gray-900">
+                Forms Assigned to Me
+              </h2>
+              {assignedTotal > 0 && (
+                <p className="text-sm text-gray-500">
+                  Showing {Math.min((assignedPage - 1) * PAGE_SIZE + 1, assignedTotal)}–{Math.min(assignedPage * PAGE_SIZE, assignedTotal)} of {assignedTotal} forms
+                </p>
+              )}
+            </div>
           </div>
           <div className="overflow-x-auto">
             <table className="w-full">
@@ -356,14 +382,14 @@ const TeacherDashboard = () => {
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-200">
-                {filteredAssignedForms.length === 0 ? (
+                {assignedForms.length === 0 ? (
                   <tr>
                     <td colSpan="4" className="px-6 py-8 text-center text-gray-500">
                       No forms assigned to you yet.
                     </td>
                   </tr>
                 ) : (
-                  filteredAssignedForms.map((form) => (
+                  assignedForms.map((form) => (
                     <tr key={form._id} className="hover:bg-gray-50">
                       <td className="px-6 py-4 text-sm text-gray-900">
                         {form.title}
@@ -436,6 +462,11 @@ const TeacherDashboard = () => {
               </tbody>
             </table>
           </div>
+          <Pagination
+            currentPage={assignedPage}
+            totalPages={assignedTotalPages}
+            onPageChange={setAssignedPage}
+          />
         </div>
       </div>
 
